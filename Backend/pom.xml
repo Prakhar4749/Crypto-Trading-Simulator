@@ -15,13 +15,13 @@
     <name>trading-simulator-v2</name>
 
     <modules>
-        <module>shared-common</module>
-        <module>service-registry</module>
+<!--        <module>shared-common</module>-->
+<!--        <module>service-registry</module>-->
         <module>api-gateway</module>
-        <module>auth-service</module>
-        <module>core-trading-service</module>
-        <module>market-ai-service</module>
-        <module>notification-service</module>
+<!--        <module>auth-service</module>-->
+<!--        <module>core-trading-service</module>-->
+<!--        <module>market-ai-service</module>-->
+<!--        <module>notification-service</module>-->
     </modules>
 
     <properties>
