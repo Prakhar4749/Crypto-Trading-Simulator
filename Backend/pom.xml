@@ -18,7 +18,7 @@
         <module>shared-common</module>
         <module>service-registry</module>
         <module>api-gateway</module>
-<!--        <module>auth-service</module>-->
+        <module>auth-service</module>
 <!--        <module>core-trading-service</module>-->
 <!--        <module>market-ai-service</module>-->
 <!--        <module>notification-service</module>-->
