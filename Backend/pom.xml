@@ -15,7 +15,7 @@
     <name>trading-simulator-v2</name>
 
     <modules>
-<!--        <module>shared-common</module>-->
+        <module>shared-common</module>
         <module>service-registry</module>
         <module>api-gateway</module>
 <!--        <module>auth-service</module>-->
