@@ -21,7 +21,7 @@
         <module>auth-service</module>
 <!--        <module>core-trading-service</module>-->
 <!--        <module>market-ai-service</module>-->
-<!--        <module>notification-service</module>-->
+        <module>notification-service</module>
     </modules>
 
     <properties>
