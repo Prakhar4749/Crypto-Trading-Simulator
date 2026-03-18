@@ -6,8 +6,9 @@ import io.jsonwebtoken.security.Keys;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.cloud.gateway.filter.GatewayFilter;
-import org.springframework.cloud.gateway.filter.factory.AbstractGatewayFilterFactory;
+import org.springframework.cloud.gateway.filter.GatewayFilterChain;
+import org.springframework.cloud.gateway.filter.GlobalFilter;
+import org.springframework.core.Ordered;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -23,14 +24,14 @@ import java.util.List;
 import java.util.UUID;
 
 @Component
-public class JwtValidationFilter extends AbstractGatewayFilterFactory<JwtValidationFilter.Config> {
+public class JwtValidationFilter implements GlobalFilter, Ordered {
 
     private static final Logger log = LoggerFactory.getLogger(JwtValidationFilter.class);
 
     @Value("${jwt.secret}")
     private String secretKey;
 
-    @Value("${internal.service.api.key}")
+    @Value("${INTERNAL_SERVICE_API_KEY}")
     private String internalApiKey;
 
     private static final List<String> PUBLIC_PATHS = List.of(
@@ -52,87 +53,91 @@ public class JwtValidationFilter extends AbstractGatewayFilterFactory<JwtValidat
             "/auth/two-factor/otp"
     );
 
-    public JwtValidationFilter() {
-        super(Config.class);
+    @Override
+    public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        ServerHttpRequest request = exchange.getRequest();
+        String path = request.getURI().getPath();
+
+        // 1. Always allow OPTIONS (CORS preflight)
+        if (HttpMethod.OPTIONS.equals(request.getMethod())) {
+            return chain.filter(exchange);
+        }
+
+        // 2. Check exact path whitelist
+        boolean isPublic = PUBLIC_PATHS.stream().anyMatch(path::equals);
+
+        // 3. Check prefix whitelist
+        if (!isPublic) {
+            isPublic = PUBLIC_PREFIXES.stream().anyMatch(path::startsWith);
+        }
+
+        // Special case for Razorpay Webhook
+        if (path.equals("/api/wallet/webhook/razorpay")) {
+            isPublic = true;
+        }
+
+        // 4. Handle Public Paths
+        if (isPublic) {
+            log.debug("[Gateway] Forwarding public request to: {} | Path: {} | Internal-Key present: {}",
+                    request.getURI(), path, internalApiKey != null && !internalApiKey.isBlank());
+
+            ServerHttpRequest publicRequest = request.mutate()
+                    .header("X-Internal-Api-Key", internalApiKey)
+                    .header("X-Trace-Id", getOrCreateTraceId(exchange))
+                    .build();
+
+            return chain.filter(exchange.mutate().request(publicRequest).build());
+        }
+
+        // 5. All other paths -> validate JWT
+        if (!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
+            return onError(exchange, "Unauthorized: No Authorization Header", HttpStatus.UNAUTHORIZED);
+        }
+
+        String authHeader = request.getHeaders().get(HttpHeaders.AUTHORIZATION).get(0);
+        if (!authHeader.startsWith("Bearer ")) {
+            return onError(exchange, "Unauthorized: Invalid Authorization Header", HttpStatus.UNAUTHORIZED);
+        }
+
+        String token = authHeader.substring(7);
+
+        try {
+            SecretKey key = Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
+            Claims claims = Jwts.parserBuilder()
+                    .setSigningKey(key)
+                    .build()
+                    .parseClaimsJws(token)
+                    .getBody();
+
+            String userId = String.valueOf(claims.get("userId"));
+            String email = String.valueOf(claims.get("email"));
+            String authorities = String.valueOf(claims.get("authorities"));
+
+            log.debug("[Gateway] Forwarding protected request to: {} | Path: {} | User: {}",
+                    request.getURI(), path, email);
+
+            ServerHttpRequest mutatedRequest = request.mutate()
+                    .header("X-User-ID", userId)
+                    .header("X-User-Email", email)
+                    .header("X-User-Role", authorities)
+                    .header("X-Internal-Api-Key", internalApiKey)
+                    .header("X-Trace-Id", getOrCreateTraceId(exchange))
+                    .build();
+
+            return chain.filter(exchange.mutate().request(mutatedRequest).build());
+
+        } catch (Exception e) {
+            log.error("[Gateway] JWT validation failed: {}", e.getMessage());
+            return onError(exchange, "Unauthorized: Invalid or missing token", HttpStatus.UNAUTHORIZED);
+        }
     }
 
     @Override
-    public GatewayFilter apply(Config config) {
-        return (exchange, chain) -> {
-            ServerHttpRequest request = exchange.getRequest();
-            String path = request.getURI().getPath();
-
-            // 1. Always allow OPTIONS (CORS preflight)
-            if (HttpMethod.OPTIONS.equals(request.getMethod())) {
-                return chain.filter(exchange);
-            }
-
-            // 2. Check exact path whitelist
-            boolean isPublic = PUBLIC_PATHS.stream().anyMatch(path::equals);
-
-            // 3. Check prefix whitelist
-            if (!isPublic) {
-                isPublic = PUBLIC_PREFIXES.stream().anyMatch(path::startsWith);
-            }
-
-            // 4. Handle Public Paths
-            if (isPublic) {
-                log.debug("[Gateway] Forwarding public request to: {} | Path: {} | Internal-Key present: {}",
-                        request.getURI(), path, internalApiKey != null && !internalApiKey.isBlank());
-
-                ServerHttpRequest mutatedRequest = request.mutate()
-                        .header("X-Internal-Api-Key", internalApiKey)
-                        .header("X-Trace-Id", generateTraceId(exchange))
-                        .build();
-
-                return chain.filter(exchange.mutate().request(mutatedRequest).build());
-            }
-
-            // 5. All other paths -> validate JWT
-            if (!request.getHeaders().containsKey(HttpHeaders.AUTHORIZATION)) {
-                return onError(exchange, "Unauthorized: No Authorization Header", HttpStatus.UNAUTHORIZED);
-            }
-
-            String authHeader = request.getHeaders().get(HttpHeaders.AUTHORIZATION).get(0);
-            if (!authHeader.startsWith("Bearer ")) {
-                return onError(exchange, "Unauthorized: Invalid Authorization Header", HttpStatus.UNAUTHORIZED);
-            }
-
-            String token = authHeader.substring(7);
-
-            try {
-                SecretKey key = Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
-                Claims claims = Jwts.parserBuilder()
-                        .setSigningKey(key)
-                        .build()
-                        .parseClaimsJws(token)
-                        .getBody();
-
-                String userId = String.valueOf(claims.get("userId"));
-                String email = String.valueOf(claims.get("email"));
-                String authorities = String.valueOf(claims.get("authorities"));
-
-                log.debug("[Gateway] Forwarding protected request to: {} | Path: {} | User: {}",
-                        request.getURI(), path, email);
-
-                ServerHttpRequest mutatedRequest = request.mutate()
-                        .header("X-User-ID", userId)
-                        .header("X-User-Email", email)
-                        .header("X-User-Role", authorities)
-                        .header("X-Internal-Api-Key", internalApiKey)
-                        .header("X-Trace-Id", generateTraceId(exchange))
-                        .build();
-
-                return chain.filter(exchange.mutate().request(mutatedRequest).build());
-
-            } catch (Exception e) {
-                log.error("[Gateway] JWT validation failed: {}", e.getMessage());
-                return onError(exchange, "Unauthorized: Invalid or missing token", HttpStatus.UNAUTHORIZED);
-            }
-        };
+    public int getOrder() {
+        return -1; // runs first
     }
 
-    private String generateTraceId(ServerWebExchange exchange) {
+    private String getOrCreateTraceId(ServerWebExchange exchange) {
         String existing = exchange.getRequest().getHeaders().getFirst("X-Trace-Id");
         return (existing != null && !existing.isBlank()) ? existing : UUID.randomUUID().toString();
     }
@@ -151,8 +156,5 @@ public class JwtValidationFilter extends AbstractGatewayFilterFactory<JwtValidat
 
         DataBuffer buffer = exchange.getResponse().bufferFactory().wrap(body.getBytes(StandardCharsets.UTF_8));
         return exchange.getResponse().writeWith(Mono.just(buffer));
-    }
-
-    public static class Config {
     }
 }

@@ -1,4 +1,4 @@
-package com.prakhar.common.filter;
+package com.prakhar.auth.filter;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -7,7 +7,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -18,23 +17,29 @@ public class InternalApiKeyFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(InternalApiKeyFilter.class);
 
-    @Value("${internal.service.api.key:${INTERNAL_SERVICE_API_KEY:}}")
-    private String internalApiKey;
+    @Value("${INTERNAL_SERVICE_API_KEY}")
+    private String expectedKey;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
-        String requestApiKey = request.getHeader("X-Internal-Api-Key");
+        String receivedKey = request.getHeader("X-Internal-Api-Key");
 
-        if (internalApiKey == null || internalApiKey.isEmpty() || !internalApiKey.equals(requestApiKey)) {
-            log.debug("[InternalApiKey] Received key: {} | Expected key hash: {}",
-                    requestApiKey != null ? "present" : "missing",
-                    internalApiKey != null ? Integer.toHexString(internalApiKey.hashCode()) : "null"
+        if (receivedKey == null || expectedKey == null || !receivedKey.trim().equals(expectedKey.trim())) {
+            log.debug("[InternalApiKey] Access Denied: Received key: {} | Expected key hash: {}",
+                    receivedKey != null ? "present" : "missing",
+                    expectedKey != null ? Integer.toHexString(expectedKey.trim().hashCode()) : "null"
             );
-            response.setStatus(HttpStatus.FORBIDDEN.value());
+            response.setStatus(HttpServletResponse.SC_FORBIDDEN);
             response.setContentType("application/json");
-            response.getWriter().write("{\"error\": \"Forbidden: Invalid or missing Internal API Key\"}");
+            response.getWriter().write("""
+                {
+                  "success": false,
+                  "message": "Forbidden: Invalid or missing Internal API Key",
+                  "data": null
+                }
+                """);
             return;
         }
 
