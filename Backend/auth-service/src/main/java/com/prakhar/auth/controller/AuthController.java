@@ -1,6 +1,8 @@
 package com.prakhar.auth.controller;
 
 import com.prakhar.auth.dto.request.GoogleAuthRequest;
+import com.prakhar.auth.dto.request.SigninRequest;
+import com.prakhar.auth.dto.request.SignupRequest;
 import com.prakhar.auth.entity.User;
 import com.prakhar.auth.mapper.UserMapper;
 import com.prakhar.auth.repository.UserRepository;
@@ -9,6 +11,12 @@ import com.prakhar.auth.service.GoogleAuthService;
 import com.prakhar.common.dto.ApiResponse;
 import com.prakhar.common.dto.UserDTO;
 import com.prakhar.common.enums.VerificationType;
+import com.prakhar.common.exception.ResourceNotFoundException;
+import com.prakhar.common.util.LogUtil;
+import jakarta.validation.Valid;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,6 +25,11 @@ import java.util.Map;
 @RestController
 @RequestMapping
 public class AuthController {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthController.class);
+
+    @Value("${spring.application.name:auth-service}")
+    private String serviceName;
 
     private final AuthService authService;
     private final GoogleAuthService googleAuthService;
@@ -32,34 +45,50 @@ public class AuthController {
     }
 
     @PostMapping("/auth/signup")
-    public ResponseEntity<ApiResponse<Map<String, String>>> signup(@RequestBody Map<String, String> request) {
+    public ResponseEntity<ApiResponse<Map<String, String>>> signup(@Valid @RequestBody SignupRequest request) {
+        log.info(LogUtil.info(
+            serviceName,
+            "POST /auth/signup",
+            null,
+            "Signup attempt | email=" + 
+              LogUtil.maskEmail(request.getEmail())
+        ));
+
         String token = authService.signup(
-                request.get("fullName"),
-                request.get("email"),
-                request.get("mobile"),
-                request.get("password")
+                request.getFullName(),
+                request.getEmail(),
+                request.getMobile(),
+                request.getPassword()
         );
         return ResponseEntity.ok(ApiResponse.success("Signup Success", Map.of("jwt", token)));
     }
 
     @PostMapping("/auth/signin")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> signin(@RequestBody Map<String, String> request) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> signin(@Valid @RequestBody SigninRequest request) {
+        log.info(LogUtil.info(
+            serviceName,
+            "POST /auth/signin", 
+            null,
+            "Login attempt | email=" + 
+              LogUtil.maskEmail(request.getEmail())
+        ));
+
         Map<String, Object> response = authService.signin(
-                request.get("email"),
-                request.get("password")
+                request.getEmail(),
+                request.getPassword()
         );
         return ResponseEntity.ok(ApiResponse.success("Signin process initiated", response));
     }
 
     @PostMapping("/auth/google")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> googleLogin(@RequestBody GoogleAuthRequest request) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> googleLogin(@Valid @RequestBody GoogleAuthRequest request) {
         Map<String, Object> response = googleAuthService.authenticateWithGoogle(request.getIdToken());
         return ResponseEntity.ok(ApiResponse.success("Google login successful", response));
     }
 
     @GetMapping("/api/users/profile")
     public ResponseEntity<ApiResponse<UserDTO>> getProfile(@RequestHeader("X-User-ID") Long userId) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
+        User user = userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User", String.valueOf(userId)));
         return ResponseEntity.ok(ApiResponse.success("Profile fetched successfully", userMapper.toDTO(user)));
     }
 

@@ -1,6 +1,6 @@
 package com.prakhar.auth.config;
 
-import com.prakhar.common.filter.InternalApiKeyFilter;
+import com.prakhar.auth.filter.InternalApiKeyFilter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;

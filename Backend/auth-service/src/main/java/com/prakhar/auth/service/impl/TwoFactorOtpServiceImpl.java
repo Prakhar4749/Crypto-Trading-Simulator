@@ -6,6 +6,7 @@ import com.prakhar.auth.service.TwoFactorOtpService;
 import com.prakhar.auth.utils.OtpUtils;
 import com.prakhar.common.enums.VerificationType;
 import com.prakhar.common.event.OtpNotificationEvent;
+import com.prakhar.common.exception.InvalidOtpException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -64,9 +65,12 @@ public class TwoFactorOtpServiceImpl implements TwoFactorOtpService {
     @Override
     public boolean verifyOtp(TwoFactorOTP otp, String code) {
         if (otp.getExpiryTime().isBefore(LocalDateTime.now())) {
-            return false;
+            throw new InvalidOtpException("OTP has expired. Please request a new one");
         }
-        return otp.getOtp().equals(code);
+        if (!otp.getOtp().equals(code)) {
+            throw new InvalidOtpException("Invalid OTP. Please try again");
+        }
+        return true;
     }
 
     @Override

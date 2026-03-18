@@ -1,39 +1,52 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration>
-    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
 
-    <springProperty scope="context" name="SERVICE_NAME" source="spring.application.name"/>
-    <springProperty scope="context" name="LOG_LEVEL" source="LOG_LEVEL" defaultValue="INFO"/>
+  <springProperty scope="context" 
+    name="LOG_LEVEL" 
+    source="logging.level.root" 
+    defaultValue="INFO"/>
 
-    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
-            <providers>
-                <timestamp>
-                    <timeZone>UTC</timeZone>
-                </timestamp>
-                <logLevel>
-                    <fieldName>level</fieldName>
-                </logLevel>
-                <pattern>
-                    <pattern>
-                        {
-                        "service": "${SERVICE_NAME}",
-                        "traceId": "%X{traceId:-}",
-                        "userId": "%X{userId:-}",
-                        "thread": "%thread",
-                        "logger": "%logger",
-                        "message": "%message",
-                        "stack_trace": "%ex"
-                        }
-                    </pattern>
-                </pattern>
-            </providers>
-        </encoder>
-    </appender>
+  <!-- ═══ COLORED CONSOLE PATTERN ═══ -->
+  <conversionRule 
+    conversionWord="clr"
+    converterClass=
+    "org.springframework.boot.logging.logback.ColorConverter"/>
 
-    <root level="${LOG_LEVEL}">
-        <appender-ref ref="CONSOLE"/>
-    </root>
+  <appender name="CONSOLE" 
+    class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>
+%clr(%d{dd-MM-yyyy hh:mm:ss a} IST){faint} %clr(|){faint} %clr(%-5level){highlight} %clr(|){faint} %clr([auth-service]){cyan} %clr(|){faint} %msg%n%ex{short}
+      </pattern>
+      <charset>UTF-8</charset>
+    </encoder>
+  </appender>
 
-    <logger name="com.prakhar" level="${LOG_LEVEL}"/>
+  <!-- ═══ LOG LEVELS ═══ -->
+  <root level="${LOG_LEVEL}">
+    <appender-ref ref="CONSOLE"/>
+  </root>
+
+  <!-- Reduce noisy framework logs -->
+  <logger name="org.hibernate.SQL" 
+    level="WARN"/>
+  <logger name="org.hibernate.orm" 
+    level="WARN"/>
+  <logger name="com.netflix.eureka" 
+    level="WARN"/>
+  <logger name="com.netflix.discovery" 
+    level="WARN"/>
+  <logger name="org.springframework.cloud" 
+    level="WARN"/>
+  <logger name="org.springframework.web" 
+    level="WARN"/>
+  <logger name="org.apache.kafka" 
+    level="WARN"/>
+  <logger name="com.zaxxer.hikari" 
+    level="WARN"/>
+
+  <!-- Our code logs at configured level -->
+  <logger name="com.prakhar" 
+    level="${LOG_LEVEL}"/>
+
 </configuration>

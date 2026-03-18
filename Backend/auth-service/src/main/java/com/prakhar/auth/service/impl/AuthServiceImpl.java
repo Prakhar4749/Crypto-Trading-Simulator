@@ -15,6 +15,7 @@ import com.prakhar.auth.utils.OtpUtils;
 import com.prakhar.common.enums.VerificationType;
 import com.prakhar.common.event.OtpNotificationEvent;
 import com.prakhar.common.event.UserCreatedEvent;
+import com.prakhar.common.exception.*;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -23,7 +24,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 
 @Service
 public class AuthServiceImpl implements AuthService {
@@ -54,7 +54,7 @@ public class AuthServiceImpl implements AuthService {
     @Transactional
     public String signup(String fullName, String email, String mobile, String password) {
         if (userRepository.findByEmail(email).isPresent()) {
-            throw new RuntimeException("Email already exists");
+            throw new DuplicateResourceException("User with email " + maskEmail(email) + " already exists");
         }
 
         User user = new User();
@@ -67,6 +67,10 @@ public class AuthServiceImpl implements AuthService {
         user.setTwoFactorEnabled(false);
 
         User savedUser = userRepository.save(user);
+        
+        if (savedUser == null) {
+            throw new BusinessException("Failed to create user account. Please try again.");
+        }
 
         kafkaTemplate.send("user-created", new UserCreatedEvent(savedUser.getId(), savedUser.getEmail(), savedUser.getFullName()));
 
@@ -76,10 +80,10 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public Map<String, Object> signin(String email, String password) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User", email));
 
         if (!passwordEncoder.matches(password, user.getPassword())) {
-            throw new RuntimeException("Invalid password");
+            throw new UnauthorizedException("Invalid email or password");
         }
 
         Map<String, Object> response = new HashMap<>();
@@ -100,12 +104,12 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public Map<String, Object> verifySigninOtp(String otp, String sessionId) throws Exception {
+    public Map<String, Object> verifySigninOtp(String otp, String sessionId) {
         TwoFactorOTP twoFactorOTP = twoFactorOtpService.findById(sessionId)
-                .orElseThrow(() -> new Exception("Invalid session"));
+                .orElseThrow(() -> new InvalidOtpException("Invalid session"));
 
         if (!twoFactorOtpService.verifyOtp(twoFactorOTP, otp)) {
-            throw new Exception("Invalid or expired OTP");
+            throw new InvalidOtpException("Invalid or expired OTP");
         }
 
         twoFactorOtpService.deleteOtp(sessionId);
@@ -127,7 +131,7 @@ public class AuthServiceImpl implements AuthService {
         verificationCode.setEmail(email);
         verificationCode.setOtp(code);
         verificationCode.setVerificationType(type);
-        verificationCode.setExpiryTime(LocalDateTime.now().plusMinutes(10)); // Fixed 10 for now or fetch from config
+        verificationCode.setExpiryTime(LocalDateTime.now().plusMinutes(10));
         
         verificationCodeRepository.save(verificationCode);
         kafkaTemplate.send("otp-notification", new OtpNotificationEvent(userId, email, code, type));
@@ -135,15 +139,16 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public void verifyEmail(Long userId, String otp) throws Exception {
+    public void verifyEmail(Long userId, String otp) {
         VerificationCode code = verificationCodeRepository.findByUserId(userId)
-                .orElseThrow(() -> new Exception("Verification code not found"));
+                .orElseThrow(() -> new InvalidOtpException("Verification code not found"));
 
         if (code.getExpiryTime().isBefore(LocalDateTime.now()) || !code.getOtp().equals(otp)) {
-            throw new Exception("Invalid or expired OTP");
+            throw new InvalidOtpException("Invalid or expired OTP");
         }
 
-        User user = userRepository.findById(userId).orElseThrow();
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", String.valueOf(userId)));
         user.setVerified(true);
         userRepository.save(user);
         
@@ -152,9 +157,9 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public String sendForgotPasswordOtp(String email) throws Exception {
+    public String sendForgotPasswordOtp(String email) {
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new Exception("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User", email));
 
         String code = OtpUtils.generateOTP();
         forgotPasswordTokenRepository.deleteByUserId(user.getId());
@@ -175,15 +180,16 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public void resetPassword(String sessionId, String otp, String newPassword) throws Exception {
+    public void resetPassword(String sessionId, String otp, String newPassword) {
         ForgotPasswordToken token = forgotPasswordTokenRepository.findById(sessionId)
-                .orElseThrow(() -> new Exception("Invalid session"));
+                .orElseThrow(() -> new InvalidOtpException("Password reset token not found or already used"));
 
         if (token.getExpiryTime().isBefore(LocalDateTime.now()) || !token.getOtp().equals(otp)) {
-            throw new Exception("Invalid or expired OTP");
+            throw new InvalidOtpException("Invalid or expired OTP");
         }
 
-        User user = userRepository.findById(token.getUserId()).orElseThrow();
+        User user = userRepository.findById(token.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("User", String.valueOf(token.getUserId())));
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
 
@@ -192,8 +198,18 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public void updateTwoFactorStatus(Long userId, boolean status) {
-        User user = userRepository.findById(userId).orElseThrow();
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", String.valueOf(userId)));
         user.setTwoFactorEnabled(status);
         userRepository.save(user);
+    }
+
+    private String maskEmail(String email) {
+        if (email == null || !email.contains("@")) return "***";
+        String[] parts = email.split("@");
+        String local = parts[0];
+        String domain = parts[1];
+        String masked = local.length() > 3 ? local.substring(0, 3) + "***" : "***";
+        return masked + "@" + domain;
     }
 }

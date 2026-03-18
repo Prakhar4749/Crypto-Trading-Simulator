@@ -5,6 +5,7 @@ import com.prakhar.auth.repository.UserRepository;
 import com.prakhar.auth.service.GoogleAuthService;
 import com.prakhar.auth.utils.JwtProvider;
 import com.prakhar.common.event.UserCreatedEvent;
+import com.prakhar.common.exception.UnauthorizedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -40,7 +41,7 @@ public class GoogleAuthServiceImpl implements GoogleAuthService {
         Map<String, Object> googleResponse = restTemplate.getForObject(url, Map.class);
 
         if (googleResponse == null || googleResponse.containsKey("error_description")) {
-            throw new RuntimeException("Invalid Google ID Token");
+            throw new UnauthorizedException("Invalid Google ID Token");
         }
 
         String email = (String) googleResponse.get("email");
