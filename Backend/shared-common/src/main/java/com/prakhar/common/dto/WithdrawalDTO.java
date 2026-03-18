@@ -1,27 +1,25 @@
 package com.prakhar.common.dto;
 
 import com.prakhar.common.enums.WithdrawalStatus;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotNull;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 public class WithdrawalDTO {
     private Long id;
     private WithdrawalStatus status;
+
+    @NotNull(message = "Amount is required")
+    @DecimalMin(value = "0.01", message = "Amount must be at least 0.01")
     private BigDecimal amount;
+
     private Long userId;
     private String email;
     private LocalDateTime date;
 
     public WithdrawalDTO() {}
-
-    public WithdrawalDTO(Long id, WithdrawalStatus status, BigDecimal amount, Long userId, String email, LocalDateTime date) {
-        this.id = id;
-        this.status = status;
-        this.amount = amount;
-        this.userId = userId;
-        this.email = email;
-        this.date = date;
-    }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
