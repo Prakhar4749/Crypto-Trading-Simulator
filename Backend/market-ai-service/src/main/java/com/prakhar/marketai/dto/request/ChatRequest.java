@@ -1,0 +1,13 @@
+package com.prakhar.marketai.dto.request;
+
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
+
+public class ChatRequest {
+    @NotBlank(message = "Message is required")
+    @Size(max = 1000, message = "Message too long (max 1000 characters)")
+    private String prompt;
+
+    public String getPrompt() { return prompt; }
+    public void setPrompt(String prompt) { this.prompt = prompt; }
+}
