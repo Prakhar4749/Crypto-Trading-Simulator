@@ -50,7 +50,7 @@ export default function KycStatusCard({ onAction }) {
   const completedCount = steps.filter(s => s.done).length;
 
   return (
-    <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-6">
+    <div id="kyc-section" className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-4 mb-6">
       <div className="flex items-center justify-between mb-3">
         <div>
           <h3 className="text-amber-400 font-semibold text-sm">

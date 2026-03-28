@@ -33,6 +33,13 @@
     --ring: 224 71.4% 4.1%;
  
     --radius: 0.5rem;
+
+    --bg-primary: #ffffff;
+    --bg-secondary: #f8fafb;
+    --bg-card: #ffffff;
+    --text-primary: #1a1a2e;
+    --text-secondary: #6b7280;
+    --border-color: #e5e7eb;
   }
  
   .dark {
@@ -63,6 +70,13 @@
     --border: 215 27.9% 16.9%;
     --input: 215 27.9% 16.9%;
     --ring: 216 12.2% 83.9%;
+
+    --bg-primary: #0f0f1a;
+    --bg-secondary: #1a1a2e;
+    --bg-card: #1a1a2e;
+    --text-primary: #ffffff;
+    --text-secondary: #9ca3af;
+    --border-color: rgba(255,255,255,0.1);
   }
 }
  
@@ -71,10 +85,10 @@
     @apply border-border;
   }
   body {
-    background-color: #F8FAFB;
-    color: #1A1A2E;
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
     font-family: 'Inter', system-ui, sans-serif;
-    @apply overflow-x-hidden;
+    @apply overflow-x-hidden transition-colors duration-300;
   }
 }
 

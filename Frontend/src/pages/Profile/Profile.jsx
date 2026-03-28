@@ -16,7 +16,19 @@ const Profile = () => {
 
   useEffect(() => {
     console.log("[Profile] mounted");
-  }, []);
+    
+    // Auto-open edit modal if coming from KYC block redirect
+    if (location.state?.openEdit) {
+      setEditOpen(true);
+      // Also scroll to KYC section
+      setTimeout(() => {
+        const kycSection = document.getElementById('kyc-section');
+        if (kycSection) {
+          kycSection.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
+    }
+  }, [location.state]);
 
   const openVerification = (type) => {
     console.log("[Profile] opening verification", { type });
