@@ -19,11 +19,11 @@ DEPLOY_LOG="$LOG_DIR/deploy.log"
 mkdir -p "$LOG_DIR"
 exec > >(tee -a "$DEPLOY_LOG") 2>&1
 
-# ─── Helpers ─────────────────────────────────────────────────────────────────
-log()  { echo "[$(date '+%Y-%m-%d %H:%M:%S')] [INFO]  $*"; }
-warn() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] [WARN]  $*"; }
-err()  { echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ERROR] $*"; }
-sep()  { echo ""; echo "════════════════════════════════════════════════════"; echo ""; }
+# ─── Helpers (UPDATED: Redirected to stderr >&2) ─────────────────────────────
+log()  { echo "[$(date '+%Y-%m-%d %H:%M:%S')] [INFO]  $*" >&2; }
+warn() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] [WARN]  $*" >&2; }
+err()  { echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ERROR] $*" >&2; }
+sep()  { echo "" >&2; echo "════════════════════════════════════════════════════" >&2; echo "" >&2; }
 
 # ─── Banner ──────────────────────────────────────────────────────────────────
 sep
@@ -155,7 +155,7 @@ wait_for_service "API Gateway"               "$GATEWAY_PORT"  "/actuator/health"
 # ─── Summary ─────────────────────────────────────────────────────────────────
 sep
 log "╔══════════════════════════════════════╗"
-log "║       DEPLOY COMPLETE ✓              ║"
+log "║        DEPLOY COMPLETE ✓             ║"
 log "╚══════════════════════════════════════╝"
 log ""
 log "  Eureka Dashboard : http://prakhar.systems:${REGISTRY_PORT}"
