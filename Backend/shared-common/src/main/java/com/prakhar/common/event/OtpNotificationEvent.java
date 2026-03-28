@@ -7,6 +7,9 @@ public class OtpNotificationEvent {
     private String email;
     private String otp;
     private VerificationType verificationType;
+    private String bonusClaimToken;
+    private String fullName;
+    private String eventType;
 
     public OtpNotificationEvent() {}
 
@@ -28,4 +31,13 @@ public class OtpNotificationEvent {
 
     public VerificationType getVerificationType() { return verificationType; }
     public void setVerificationType(VerificationType verificationType) { this.verificationType = verificationType; }
+
+    public String getBonusClaimToken() { return bonusClaimToken; }
+    public void setBonusClaimToken(String bonusClaimToken) { this.bonusClaimToken = bonusClaimToken; }
+
+    public String getFullName() { return fullName; }
+    public void setFullName(String fullName) { this.fullName = fullName; }
+
+    public String getEventType() { return eventType; }
+    public void setEventType(String eventType) { this.eventType = eventType; }
 }

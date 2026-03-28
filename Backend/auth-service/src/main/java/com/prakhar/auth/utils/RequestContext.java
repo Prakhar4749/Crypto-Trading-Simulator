@@ -7,7 +7,10 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 public class RequestContext {
 
     public static Long getUserId() {
-        HttpServletRequest request = getCurrentRequest();
+        return getUserId(getCurrentRequest());
+    }
+
+    public static Long getUserId(HttpServletRequest request) {
         if (request != null) {
             String userId = request.getHeader("X-User-ID");
             if (userId != null && !userId.isEmpty()) {

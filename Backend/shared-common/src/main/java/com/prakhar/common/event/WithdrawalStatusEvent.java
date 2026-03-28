@@ -6,15 +6,17 @@ public class WithdrawalStatusEvent {
     private Long withdrawalId;
     private Long userId;
     private String email;
+    private String fullName;
     private BigDecimal amount;
     private String status;
 
     public WithdrawalStatusEvent() {}
 
-    public WithdrawalStatusEvent(Long withdrawalId, Long userId, String email, BigDecimal amount, String status) {
+    public WithdrawalStatusEvent(Long withdrawalId, Long userId, String email, String fullName, BigDecimal amount, String status) {
         this.withdrawalId = withdrawalId;
         this.userId = userId;
         this.email = email;
+        this.fullName = fullName;
         this.amount = amount;
         this.status = status;
     }
@@ -27,6 +29,9 @@ public class WithdrawalStatusEvent {
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
+
+    public String getFullName() { return fullName; }
+    public void setFullName(String fullName) { this.fullName = fullName; }
 
     public BigDecimal getAmount() { return amount; }
     public void setAmount(BigDecimal amount) { this.amount = amount; }

@@ -67,6 +67,7 @@ public class CoreTradingController {
         return ResponseEntity.ok(ApiResponse.success("Wallet fetched successfully", mapper.toWalletDTO(wallet)));
     }
 
+
     @PutMapping("/wallet/transfer")
     public ResponseEntity<ApiResponse<WalletDTO>> walletToWalletTransfer(
             @RequestHeader("X-User-ID") Long senderUserId,
@@ -114,6 +115,14 @@ public class CoreTradingController {
             watchlistCoinRepository.save(watchlistCoin);
         }
         return ResponseEntity.ok(ApiResponse.success("Watchlist updated successfully", null));
+    }
+
+    @PostMapping("/wallet/deposit")
+    public ResponseEntity<ApiResponse<PaymentOrderResponse>> createDepositOrder(
+            @RequestHeader("X-User-ID") Long userId,
+            @RequestParam Long amount) throws Exception {
+        PaymentOrderResponse response = service.createDepositOrder(userId, amount);
+        return ResponseEntity.ok(ApiResponse.success("Payment initiated", response));
     }
 
     @PostMapping("/wallet/webhook/razorpay")

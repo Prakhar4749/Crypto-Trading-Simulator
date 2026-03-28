@@ -1,0 +1,210 @@
+{
+	"info": {
+		"_postman_id": "auth-service-v3",
+		"name": "Auth Service API",
+		"description": "Comprehensive API collection for Auth Service.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Signup",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"fullName\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"password123\",\n  \"mobile\": \"9876543210\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/signup",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "signup"]
+						}
+					}
+				},
+				{
+					"name": "Signin",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"john@example.com\",\n  \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/signin",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "signin"]
+						}
+					}
+				},
+				{
+					"name": "Google Login",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"idToken\": \"google-oauth-id-token-here\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/google",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "google"]
+						}
+					}
+				},
+				{
+					"name": "Verify 2FA OTP",
+					"request": {
+						"method": "POST",
+						"url": {
+							"raw": "{{base_url}}/auth/two-factor/otp/123456?id={{session_id}}",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "two-factor", "otp", "123456"],
+							"query": [{ "key": "id", "value": "{{session_id}}" }]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Password & Verification",
+			"item": [
+				{
+					"name": "Send Verification OTP",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "X-User-ID", "value": "1" },
+							{ "key": "X-User-Email", "value": "john@example.com" },
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/auth/users/verification/EMAIL/send-otp",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "users", "verification", "EMAIL", "send-otp"]
+						}
+					}
+				},
+				{
+					"name": "Verify Email OTP",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{ "key": "X-User-ID", "value": "1" },
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/auth/users/verify-email/verify-otp/123456",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "users", "verify-email", "verify-otp", "123456"]
+						}
+					}
+				},
+				{
+					"name": "Send Forgot Password OTP",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"john@example.com\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/users/reset-password/send-otp",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "users", "reset-password", "send-otp"]
+						}
+					}
+				},
+				{
+					"name": "Reset Password",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"newPassword\": \"new-secure-password\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/users/reset-password/verify-otp?sessionId={{session_id}}&otp=123456",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "users", "reset-password", "verify-otp"],
+							"query": [
+								{ "key": "sessionId", "value": "{{session_id}}" },
+								{ "key": "otp", "value": "123456" }
+							]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "User Profile",
+			"item": [
+				{
+					"name": "Get Profile",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/users/profile",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users", "profile"]
+						}
+					}
+				},
+				{
+					"name": "Enable/Disable 2FA",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/users/enable-two-factor?enabled=true",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users", "enable-two-factor"],
+							"query": [{ "key": "enabled", "value": "true" }]
+						}
+					}
+				},
+				{
+					"name": "Set Password",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"newPassword\": \"another-secure-password\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/users/set-password",
+							"host": ["{{base_url}}"],
+							"path": ["api", "users", "set-password"]
+						}
+					}
+				}
+			]
+		}
+	]
+}

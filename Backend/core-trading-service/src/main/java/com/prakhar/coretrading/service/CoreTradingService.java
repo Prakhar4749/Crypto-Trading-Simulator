@@ -1,6 +1,7 @@
 package com.prakhar.coretrading.service;
 
 import com.prakhar.common.dto.PaymentDetailsDTO;
+import com.prakhar.common.dto.PaymentOrderResponse;
 import com.prakhar.common.dto.WalletDTO;
 import com.prakhar.common.dto.WalletTransactionDTO;
 
@@ -10,6 +11,7 @@ import java.util.List;
 public interface CoreTradingService {
     void processTrade(Long userId, String coinId, double quantity, String orderType) throws Exception;
     void handleRazorpayPayment(Long userId, Long amountInInr);
+    PaymentOrderResponse createDepositOrder(Long userId, Long amount) throws Exception;
     
     // Wallet Transfer
     WalletDTO transferToWallet(Long senderUserId, Long receiverWalletId, BigDecimal amount, String purpose) throws Exception;
@@ -18,4 +20,8 @@ public interface CoreTradingService {
     // Payment Details
     PaymentDetailsDTO addPaymentDetails(Long userId, PaymentDetailsDTO paymentDetails) throws Exception;
     PaymentDetailsDTO getUserPaymentDetails(Long userId) throws Exception;
+
+    // Internal Wallet Creation
+    WalletDTO createWalletForUser(Long userId, String email, String fullName);
+    WalletDTO creditSignupBonus(Long userId);
 }

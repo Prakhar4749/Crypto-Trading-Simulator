@@ -15,13 +15,14 @@ public class JwtProvider {
     @Value("${jwt.secret}")
     private String secretKey;
 
-    public String generateToken(Long userId, String email, String role) {
+    public String generateToken(Long userId, String email, String fullName, String role) {
         SecretKey key = Keys.hmacShaKeyFor(secretKey.getBytes(StandardCharsets.UTF_8));
         return Jwts.builder()
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(new Date().getTime() + 86400000))
                 .claim("userId", userId)
                 .claim("email", email)
+                .claim("fullName", fullName)
                 .claim("authorities", role)
                 .signWith(key)
                 .compact();

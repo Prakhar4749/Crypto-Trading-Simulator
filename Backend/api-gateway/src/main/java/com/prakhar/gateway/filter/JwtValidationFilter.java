@@ -43,6 +43,7 @@ public class JwtValidationFilter implements GlobalFilter, Ordered {
             "/auth/users/verification/EMAIL/send-otp",
             "/auth/users/verification/MOBILE/send-otp",
             "/auth/two-factor/otp",
+            "/auth/claim-bonus",
             "/actuator/health",
             "/actuator/info"
     );
@@ -111,6 +112,7 @@ public class JwtValidationFilter implements GlobalFilter, Ordered {
 
             String userId = String.valueOf(claims.get("userId"));
             String email = String.valueOf(claims.get("email"));
+            String fullName = String.valueOf(claims.get("fullName"));
             String authorities = String.valueOf(claims.get("authorities"));
 
             log.debug("[Gateway] Forwarding protected request to: {} | Path: {} | User: {}",
@@ -119,6 +121,7 @@ public class JwtValidationFilter implements GlobalFilter, Ordered {
             ServerHttpRequest mutatedRequest = request.mutate()
                     .header("X-User-ID", userId)
                     .header("X-User-Email", email)
+                    .header("X-User-FullName", fullName)
                     .header("X-User-Role", authorities)
                     .header("X-Internal-Api-Key", internalApiKey)
                     .header("X-Trace-Id", getOrCreateTraceId(exchange))

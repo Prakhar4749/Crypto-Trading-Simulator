@@ -25,7 +25,7 @@ public class TradeNotificationConsumer {
             return;
         }
         try {
-            emailService.sendTradeConfirmationEmail(event.getEmail(), event.getCoinId(), event.getPrice(), event.getOrderType());
+            emailService.sendTradeConfirmationEmail(event.getEmail(), event.getFullName(), event);
         } catch (Exception e) {
             logger.error("Error processing trade confirmation email: {}", e.getMessage());
         }

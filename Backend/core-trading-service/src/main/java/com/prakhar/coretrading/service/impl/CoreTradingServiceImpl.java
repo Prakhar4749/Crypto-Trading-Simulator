@@ -5,21 +5,27 @@ import com.prakhar.common.dto.*;
 import com.prakhar.common.enums.WalletTransactionType;
 import com.prakhar.common.event.TradeExecutedEvent;
 import com.prakhar.common.exception.*;
+import com.prakhar.common.util.LogUtil;
 import com.prakhar.coretrading.utils.RequestContext;
 import com.prakhar.coretrading.entity.*;
+import com.prakhar.coretrading.feign.AuthClient;
 import com.prakhar.coretrading.feign.MarketAiClient;
 import com.prakhar.coretrading.config.RazorpayConfig;
 import com.prakhar.coretrading.mapper.TradingMapper;
 import com.prakhar.coretrading.repository.*;
 import com.prakhar.coretrading.service.CoreTradingService;
+import com.razorpay.RazorpayClient;
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -34,9 +40,16 @@ public class CoreTradingServiceImpl implements CoreTradingService {
     private final OrderRepository orderRepository;
     private final PaymentDetailsRepository paymentDetailsRepository;
     private final MarketAiClient marketClient;
+    private final AuthClient authClient;
     private final RazorpayConfig razorpayConfig;
     private final KafkaTemplate<String, Object> kafkaTemplate;
     private final TradingMapper mapper;
+
+    @Value("${wallet.signup-bonus:10000}")
+    private String signupBonusAmount;
+
+    @Value("${internal.service.api.key}")
+    private String internalApiKey;
 
     public CoreTradingServiceImpl(WalletRepository walletRepository, 
                                   WalletTransactionRepository walletTransactionRepository,
@@ -44,6 +57,7 @@ public class CoreTradingServiceImpl implements CoreTradingService {
                                   OrderRepository orderRepository,
                                   PaymentDetailsRepository paymentDetailsRepository,
                                   MarketAiClient marketClient, 
+                                  AuthClient authClient,
                                   RazorpayConfig razorpayConfig, 
                                   KafkaTemplate<String, Object> kafkaTemplate,
                                   TradingMapper mapper) {
@@ -53,9 +67,61 @@ public class CoreTradingServiceImpl implements CoreTradingService {
         this.orderRepository = orderRepository;
         this.paymentDetailsRepository = paymentDetailsRepository;
         this.marketClient = marketClient;
+        this.authClient = authClient;
         this.razorpayConfig = razorpayConfig;
         this.kafkaTemplate = kafkaTemplate;
         this.mapper = mapper;
+    }
+
+    @Override
+    @Transactional
+    public PaymentOrderResponse createDepositOrder(Long userId, Long amount) throws Exception {
+        // 1. Get user KYC status via Feign
+        ApiResponse<UserDTO> authResponse = authClient.getUserById(userId, internalApiKey);
+        UserDTO user = authResponse.getData();
+
+        if (user == null || !"VERIFIED".equals(user.getKycStatus())) {
+            List<String> missing = new ArrayList<>();
+            if (user != null) {
+                if (!user.isVerified()) missing.add("Email verification");
+                if (user.getPhoneNumber() == null || user.getPhoneNumber().isBlank()) missing.add("Phone number");
+                if (user.getAddress() == null || user.getAddress().isBlank()) missing.add("Address");
+            } else {
+                missing.add("Full KYC Profile");
+            }
+
+            String missingStr = String.join(", ", missing);
+            throw new BusinessException(
+                "Account verification required to deposit. Please complete: " + missingStr + 
+                ". Go to Profile > Verification."
+            );
+        }
+
+        // 2. Create Razorpay Order
+        try {
+            RazorpayClient razorpay = new RazorpayClient(razorpayConfig.getKeyId(), razorpayConfig.getKeySecret());
+
+            JSONObject orderRequest = new JSONObject();
+            orderRequest.put("amount", amount * 100); // amount in the smallest currency unit (paise)
+            orderRequest.put("currency", "INR");
+            orderRequest.put("receipt", "receipt_" + userId + "_" + System.currentTimeMillis());
+            
+            JSONObject notes = new JSONObject();
+            notes.put("user_id", userId);
+            orderRequest.put("notes", notes);
+
+            com.razorpay.Order rzpOrder = razorpay.orders.create(orderRequest);
+
+            return new PaymentOrderResponse(
+                rzpOrder.get("id"),
+                ((Number) rzpOrder.get("amount")).longValue() / 100,
+                rzpOrder.get("currency"),
+                rzpOrder.get("status")
+            );
+        } catch (Exception e) {
+            log.error("Failed to create Razorpay order: {}", e.getMessage());
+            throw new ExternalServiceException("razorpay", "Could not initiate payment. Please try again later.");
+        }
     }
 
     @Override
@@ -118,7 +184,7 @@ public class CoreTradingServiceImpl implements CoreTradingService {
             sellPrice = currentPrice;
         }
 
-        Order order = new Order();
+        com.prakhar.coretrading.entity.Order order = new com.prakhar.coretrading.entity.Order();
         order.setUserId(userId);
         order.setOrderType(orderType);
         order.setPrice(totalCost);
@@ -131,7 +197,7 @@ public class CoreTradingServiceImpl implements CoreTradingService {
         orderRepository.save(order);
 
         kafkaTemplate.send("trade-executed", new TradeExecutedEvent(
-                userId, RequestContext.getUserEmail(), coinId, quantity, totalCost, orderType, "SUCCESS", LocalDateTime.now()
+                userId, RequestContext.getUserEmail(), RequestContext.getUserFullName(), coinId, quantity, totalCost, orderType, "SUCCESS", LocalDateTime.now()
         ));
     }
 
@@ -226,5 +292,68 @@ public class CoreTradingServiceImpl implements CoreTradingService {
         PaymentDetails details = paymentDetailsRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("PaymentDetails", "userId=" + userId));
         return mapper.toPaymentDetailsDTO(details);
+    }
+
+    @Override
+    @Transactional
+    public WalletDTO createWalletForUser(Long userId, String email, String fullName) {
+        // Check if wallet already exists
+        if (walletRepository.existsByUserId(userId)) {
+            log.warn(LogUtil.info(
+                "core-trading-service",
+                "createWalletForUser",
+                userId.toString(),
+                "Wallet already exists — skipping"
+            ));
+            return mapper.toWalletDTO(
+                walletRepository.findByUserId(userId).orElseThrow()
+            );
+        }
+
+        // Create wallet with ZERO balance
+        // Bonus credited separately via claim
+        Wallet wallet = new Wallet();
+        wallet.setUserId(userId);
+        wallet.setBalance(BigDecimal.ZERO);
+        // wallet.setCreatedAt(LocalDateTime.now()); // Add if field exists
+        Wallet saved = walletRepository.save(wallet);
+
+        log.info(LogUtil.info(
+            "core-trading-service",
+            "createWalletForUser",
+            userId.toString(),
+            "Wallet created | balance=0 | bonus will be credited on claim"
+        ));
+
+        return mapper.toWalletDTO(saved);
+    }
+
+    @Override
+    @Transactional
+    public WalletDTO creditSignupBonus(Long userId) {
+        Wallet wallet = walletRepository.findByUserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Wallet", "userId=" + userId));
+
+        BigDecimal bonusAmount = new BigDecimal(signupBonusAmount);
+        wallet.setBalance(wallet.getBalance().add(bonusAmount));
+        walletRepository.save(wallet);
+
+        // Record transaction
+        WalletTransaction tx = new WalletTransaction();
+        tx.setWalletId(wallet.getId());
+        tx.setType(WalletTransactionType.SIGNUP_BONUS);
+        tx.setAmount(bonusAmount);
+        tx.setPurpose("Welcome bonus from CoinDesk");
+        tx.setDate(LocalDateTime.now());
+        walletTransactionRepository.save(tx);
+
+        log.info(LogUtil.info(
+            "core-trading-service",
+            "creditSignupBonus",
+            userId.toString(),
+            "Bonus credited: $" + bonusAmount
+        ));
+
+        return mapper.toWalletDTO(wallet);
     }
 }

@@ -1,58 +1,47 @@
 package com.prakhar.coretrading.listener;
 
-import com.prakhar.common.enums.WalletTransactionType;
-import com.prakhar.coretrading.entity.Wallet;
-import com.prakhar.coretrading.entity.WalletTransaction;
+import com.prakhar.common.event.UserCreatedEvent;
+import com.prakhar.common.util.LogUtil;
 import com.prakhar.coretrading.repository.WalletRepository;
-import com.prakhar.coretrading.repository.WalletTransactionRepository;
+import com.prakhar.coretrading.service.CoreTradingService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.Map;
 
 @Component
 public class CoreTradingListener {
 
     private static final Logger logger = LoggerFactory.getLogger(CoreTradingListener.class);
     private final WalletRepository walletRepository;
-    private final WalletTransactionRepository walletTransactionRepository;
+    private final CoreTradingService coreTradingService;
 
-    @Value("${wallet.signup-bonus}")
-    private BigDecimal signupBonus;
+    @Value("${kafka.topic.user-created:user-created}")
+    private String userCreatedTopic;
 
     public CoreTradingListener(WalletRepository walletRepository, 
-                               WalletTransactionRepository walletTransactionRepository) {
+                               CoreTradingService coreTradingService) {
         this.walletRepository = walletRepository;
-        this.walletTransactionRepository = walletTransactionRepository;
+        this.coreTradingService = coreTradingService;
     }
 
-    @KafkaListener(topics = "user-created", groupId = "core-trading-group")
-    @Transactional
-    public void onUserCreated(Map<String, Object> event) {
-        Long userId = Long.valueOf(String.valueOf(event.get("userId")));
-        
-        logger.info("Creating wallet for userId={} with signup bonus={}", userId, signupBonus);
-        
-        Wallet wallet = new Wallet();
-        wallet.setUserId(userId);
-        wallet.setBalance(signupBonus);
-        
-        Wallet savedWallet = walletRepository.save(wallet);
-        
-        WalletTransaction transaction = new WalletTransaction();
-        transaction.setWalletId(savedWallet.getId());
-        transaction.setType(WalletTransactionType.SIGNUP_BONUS);
-        transaction.setDate(LocalDateTime.now());
-        transaction.setPurpose("Signup Bonus");
-        transaction.setAmount(signupBonus);
-        
-        walletTransactionRepository.save(transaction);
-        logger.info("New wallet created for userId={} with signup bonus={}", userId, signupBonus);
+    @KafkaListener(topics = "${kafka.topic.user-created:user-created}", groupId = "core-trading-group")
+    public void onUserCreated(UserCreatedEvent event) {
+        // Safety net: create wallet if not exists
+        // This handles edge cases where Feign succeeded but was not committed
+        if (!walletRepository.existsByUserId(event.getUserId())) {
+            logger.warn(LogUtil.warn(
+                "core-trading-service",
+                "Kafka:user-created",
+                event.getUserId().toString(),
+                "Wallet missing — creating via safety net"
+            ));
+            coreTradingService.createWalletForUser(
+                event.getUserId(),
+                event.getEmail(),
+                event.getFullName()
+            );
+        }
     }
 }

@@ -1,32 +1,51 @@
 package com.prakhar.auth.service.impl;
 
+import com.prakhar.auth.dto.request.CreateWalletRequest;
+import com.prakhar.auth.dto.request.UpdateProfileRequest;
+import com.prakhar.auth.entity.AuthProvider;
 import com.prakhar.auth.entity.ForgotPasswordToken;
 import com.prakhar.auth.entity.TwoFactorOTP;
 import com.prakhar.auth.entity.User;
 import com.prakhar.auth.entity.VerificationCode;
+import com.prakhar.auth.enums.KycStatus;
+import com.prakhar.auth.enums.UserRole;
+import com.prakhar.auth.feign.CoreTradingClient;
+import com.prakhar.auth.mapper.UserMapper;
 import com.prakhar.auth.repository.ForgotPasswordTokenRepository;
 import com.prakhar.auth.repository.TwoFactorOtpRepository;
 import com.prakhar.auth.repository.UserRepository;
 import com.prakhar.auth.repository.VerificationCodeRepository;
 import com.prakhar.auth.service.AuthService;
 import com.prakhar.auth.service.TwoFactorOtpService;
+import com.prakhar.auth.utils.BonusTokenUtils;
 import com.prakhar.auth.utils.JwtProvider;
 import com.prakhar.auth.utils.OtpUtils;
+import com.prakhar.common.dto.ApiResponse;
+import com.prakhar.common.dto.UserDTO;
+import com.prakhar.common.dto.WalletDTO;
 import com.prakhar.common.enums.VerificationType;
 import com.prakhar.common.event.OtpNotificationEvent;
 import com.prakhar.common.event.UserCreatedEvent;
 import com.prakhar.common.exception.*;
+import com.prakhar.common.util.LogUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @Service
 public class AuthServiceImpl implements AuthService {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthServiceImpl.class);
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -35,12 +54,27 @@ public class AuthServiceImpl implements AuthService {
     private final VerificationCodeRepository verificationCodeRepository;
     private final ForgotPasswordTokenRepository forgotPasswordTokenRepository;
     private final JwtProvider jwtProvider;
+    private final UserMapper userMapper;
+    private final CoreTradingClient coreTradingClient;
+
+    @Value("${internal.api-key}")
+    private String internalApiKey;
+
+    @Value("${kafka.topic.user-created:user-created}")
+    private String userCreatedTopic;
+
+    @Value("${kafka.topic.otp-notification:otp-notification}")
+    private String otpNotificationTopic;
+
+    @Value("${frontend.url:http://localhost:5173}")
+    private String frontendUrl;
 
     public AuthServiceImpl(UserRepository userRepository, PasswordEncoder passwordEncoder, 
                            KafkaTemplate<String, Object> kafkaTemplate, TwoFactorOtpService twoFactorOtpService,
                            VerificationCodeRepository verificationCodeRepository,
                            ForgotPasswordTokenRepository forgotPasswordTokenRepository,
-                           JwtProvider jwtProvider) {
+                           JwtProvider jwtProvider, UserMapper userMapper,
+                           CoreTradingClient coreTradingClient) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.kafkaTemplate = kafkaTemplate;
@@ -48,6 +82,8 @@ public class AuthServiceImpl implements AuthService {
         this.verificationCodeRepository = verificationCodeRepository;
         this.forgotPasswordTokenRepository = forgotPasswordTokenRepository;
         this.jwtProvider = jwtProvider;
+        this.userMapper = userMapper;
+        this.coreTradingClient = coreTradingClient;
     }
 
     @Override
@@ -62,9 +98,10 @@ public class AuthServiceImpl implements AuthService {
         user.setEmail(email);
         user.setMobile(mobile);
         user.setPassword(passwordEncoder.encode(password));
-        user.setRole("ROLE_USER");
+        user.setRole(UserRole.ROLE_USER);
         user.setVerified(false);
         user.setTwoFactorEnabled(false);
+        user.setAuthProvider(AuthProvider.LOCAL); 
 
         User savedUser = userRepository.save(user);
         
@@ -72,9 +109,45 @@ public class AuthServiceImpl implements AuthService {
             throw new BusinessException("Failed to create user account. Please try again.");
         }
 
-        kafkaTemplate.send("user-created", new UserCreatedEvent(savedUser.getId(), savedUser.getEmail(), savedUser.getFullName()));
+        // 2. Create wallet via Feign (SYNCHRONOUS)
+        try {
+            coreTradingClient.createWalletForUser(
+                new CreateWalletRequest(
+                    savedUser.getId(),
+                    savedUser.getEmail(),
+                    savedUser.getFullName()
+                ),
+                internalApiKey
+            );
+            log.info(LogUtil.info(
+                "auth-service",
+                "POST /auth/signup",
+                savedUser.getId().toString(),
+                "Wallet created via Feign for: " + maskEmail(savedUser.getEmail())
+            ));
+        } catch (Exception e) {
+            log.error(LogUtil.error(
+                "auth-service",
+                "POST /auth/signup",
+                null,
+                "Wallet creation failed — rolling back: " + e.getMessage()
+            ));
+            userRepository.delete(savedUser);
+            throw new ExternalServiceException(
+                "core-trading-service",
+                "Could not initialize your account. Please try again."
+            );
+        }
 
-        return jwtProvider.generateToken(savedUser.getId(), savedUser.getEmail(), savedUser.getRole());
+        // Generate bonus claim token
+        String bonusToken = BonusTokenUtils.generateToken();
+        savedUser.setBonusClaimToken(bonusToken);
+        savedUser.setBonusClaimTokenExpiry(BonusTokenUtils.getExpiry());
+        userRepository.save(savedUser);
+
+        kafkaTemplate.send(userCreatedTopic, new UserCreatedEvent(savedUser.getId(), savedUser.getEmail(), savedUser.getFullName(), bonusToken, false));
+
+        return jwtProvider.generateToken(savedUser.getId(), savedUser.getEmail(), savedUser.getFullName(), savedUser.getRole().name());
     }
 
     @Override
@@ -82,13 +155,17 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User", email));
 
+        if (user.getPassword() == null) {
+            throw new UnauthorizedException("This account was created via Google. Please log in with Google or set a password via profile.");
+        }
+
         if (!passwordEncoder.matches(password, user.getPassword())) {
             throw new UnauthorizedException("Invalid email or password");
         }
 
         Map<String, Object> response = new HashMap<>();
         
-        String jwt = jwtProvider.generateToken(user.getId(), user.getEmail(), user.getRole());
+        String jwt = jwtProvider.generateToken(user.getId(), user.getEmail(), user.getFullName(), user.getRole().name());
 
         if (user.isTwoFactorEnabled()) {
             TwoFactorOTP twoFactorOTP = twoFactorOtpService.createOtp(user.getId(), user.getEmail(), jwt);
@@ -134,7 +211,7 @@ public class AuthServiceImpl implements AuthService {
         verificationCode.setExpiryTime(LocalDateTime.now().plusMinutes(10));
         
         verificationCodeRepository.save(verificationCode);
-        kafkaTemplate.send("otp-notification", new OtpNotificationEvent(userId, email, code, type));
+        kafkaTemplate.send(otpNotificationTopic, new OtpNotificationEvent(userId, email, code, type));
     }
 
     @Override
@@ -150,8 +227,32 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User", String.valueOf(userId)));
         user.setVerified(true);
-        userRepository.save(user);
         
+        // Mark email as verified
+        // Check KYC status
+        checkAndUpdateKycStatus(user);
+        
+        // Send bonus claim email if not yet availed
+        if (!user.isSignupBonusAvailed() && user.getBonusClaimToken() != null) {
+            // Publish event to send claim email
+            OtpNotificationEvent bonusEvent = new OtpNotificationEvent();
+            bonusEvent.setUserId(user.getId());
+            bonusEvent.setEmail(user.getEmail());
+            bonusEvent.setFullName(user.getFullName());
+            bonusEvent.setBonusClaimToken(user.getBonusClaimToken());
+            bonusEvent.setEventType("CLAIM_BONUS_EMAIL");
+            
+            kafkaTemplate.send(otpNotificationTopic, bonusEvent);
+            
+            log.info(LogUtil.info(
+                "auth-service",
+                "verifyEmailOtp",
+                user.getId().toString(),
+                "Bonus claim email event published"
+            ));
+        }
+        
+        userRepository.save(user);
         verificationCodeRepository.deleteByUserId(userId);
     }
 
@@ -174,7 +275,7 @@ public class AuthServiceImpl implements AuthService {
 
         forgotPasswordTokenRepository.save(token);
         
-        kafkaTemplate.send("otp-notification", new OtpNotificationEvent(user.getId(), email, code, VerificationType.FORGOT_PASSWORD));
+        kafkaTemplate.send(otpNotificationTopic, new OtpNotificationEvent(user.getId(), email, code, VerificationType.FORGOT_PASSWORD));
         return token.getId();
     }
 
@@ -202,6 +303,140 @@ public class AuthServiceImpl implements AuthService {
                 .orElseThrow(() -> new ResourceNotFoundException("User", String.valueOf(userId)));
         user.setTwoFactorEnabled(status);
         userRepository.save(user);
+    }
+
+    @Override
+    @Transactional
+    public void setPassword(Long userId, String newPassword) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", String.valueOf(userId)));
+        
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userRepository.save(user);
+    }
+
+    @Override
+    @Transactional
+    public UserDTO updateProfile(Long userId, UpdateProfileRequest request) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", String.valueOf(userId)));
+
+        if (request.getAddress() != null) user.setAddress(request.getAddress());
+        if (request.getCity() != null) user.setCity(request.getCity());
+        if (request.getState() != null) user.setState(request.getState());
+        if (request.getCountry() != null) user.setCountry(request.getCountry());
+        if (request.getPinCode() != null) user.setPinCode(request.getPinCode());
+        if (request.getPhoneNumber() != null) user.setPhoneNumber(request.getPhoneNumber());
+        if (request.getProfilePicture() != null) user.setProfilePicture(request.getProfilePicture());
+        if (request.getDateOfBirth() != null) user.setDateOfBirth(request.getDateOfBirth());
+
+        // Mark email as verified
+        // Check KYC status
+        checkAndUpdateKycStatus(user);
+
+        User savedUser = userRepository.save(user);
+        return userMapper.toDTO(savedUser);
+    }
+
+    @Override
+    public Map<String, Object> getKycStatus(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", String.valueOf(userId)));
+
+        Map<String, Object> status = new HashMap<>();
+        status.put("kycStatus", user.getKycStatus());
+        status.put("isEmailVerified", user.isVerified());
+        
+        boolean hasPhone = user.getPhoneNumber() != null && !user.getPhoneNumber().isBlank();
+        boolean hasAddress = user.getAddress() != null && !user.getAddress().isBlank();
+        
+        status.put("hasPhone", hasPhone);
+        status.put("hasAddress", hasAddress);
+        
+        List<String> missingFields = new ArrayList<>();
+        if (!user.isVerified()) missingFields.add("Email Verification");
+        if (!hasPhone) missingFields.add("Phone Number");
+        if (!hasAddress) missingFields.add("Full Address");
+        if (user.getCity() == null) missingFields.add("City");
+        if (user.getCountry() == null) missingFields.add("Country");
+        
+        status.put("missingFields", missingFields);
+        status.put("canDeposit", user.getKycStatus() == KycStatus.VERIFIED);
+        
+        return status;
+    }
+
+    @Override
+    @Transactional
+    public WalletDTO claimSignupBonus(String token) {
+        // 1. Find user by token
+        User user = userRepository.findByBonusClaimToken(token)
+            .orElseThrow(() -> new BusinessException("Invalid or expired bonus claim link."));
+
+        // 2. Check already claimed
+        if (user.isSignupBonusAvailed()) {
+            throw new BusinessException("Bonus has already been claimed for this account.");
+        }
+
+        // 3. Check token expiry
+        if (LocalDateTime.now().isAfter(user.getBonusClaimTokenExpiry())) {
+            throw new BusinessException("This bonus claim link has expired. Please contact support.");
+        }
+
+        // 4. Check email verified
+        if (!user.isVerified()) {
+            throw new BusinessException("Please verify your email before claiming the bonus.");
+        }
+
+        // 5. Credit bonus via Feign call
+        try {
+            WalletDTO wallet = creditBonusViaFeign(user.getId());
+
+            // 6. Mark bonus as availed
+            user.setSignupBonusAvailed(true);
+            user.setBonusClaimToken(null);
+            user.setBonusClaimTokenExpiry(null);
+            userRepository.save(user);
+
+            log.info(LogUtil.info(
+                "auth-service",
+                "POST /auth/claim-bonus",
+                user.getId().toString(),
+                "Signup bonus claimed successfully"
+            ));
+
+            return wallet;
+        } catch (Exception e) {
+            log.error(LogUtil.error(
+                "auth-service",
+                "POST /auth/claim-bonus",
+                user.getId().toString(),
+                "Bonus credit failed: " + e.getMessage()
+            ));
+            throw new ExternalServiceException("core-trading-service", "Could not credit bonus. Please try again.");
+        }
+    }
+
+    private WalletDTO creditBonusViaFeign(Long userId) {
+        ApiResponse<WalletDTO> response = coreTradingClient.creditSignupBonus(userId, internalApiKey);
+        if (response == null || !response.isSuccess()) {
+            throw new ExternalServiceException("core-trading-service", "Bonus credit failed");
+        }
+        return response.getData();
+    }
+
+    private void checkAndUpdateKycStatus(User user) {
+        boolean emailVerified = user.isVerified();
+        boolean hasPhone = user.getPhoneNumber() != null && !user.getPhoneNumber().isBlank();
+        boolean hasAddress = user.getAddress() != null && !user.getAddress().isBlank()
+                && user.getCity() != null && !user.getCity().isBlank()
+                && user.getCountry() != null && !user.getCountry().isBlank();
+
+        if (emailVerified && hasPhone && hasAddress && user.getKycStatus() != KycStatus.VERIFIED) {
+            user.setKycStatus(KycStatus.VERIFIED);
+            user.setKycVerifiedAt(LocalDateTime.now());
+            log.info(LogUtil.info("auth-service", "KYC", user.getId().toString(), "KYC status changed to VERIFIED"));
+        }
     }
 
     private String maskEmail(String email) {

@@ -21,7 +21,12 @@ public class WelcomeEmailConsumer {
     public void consume(UserCreatedEvent event) {
         logger.info("Consumed user-created event for email: {}", event.getEmail());
         try {
-            emailService.sendWelcomeEmail(event.getEmail(), event.getFullName());
+            emailService.sendWelcomeEmail(
+                event.getEmail(),
+                event.getFullName(),
+                event.getBonusClaimToken(),
+                event.isEmailVerified()
+            );
         } catch (Exception e) {
             logger.error("Error processing welcome email: {}", e.getMessage());
         }

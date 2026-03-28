@@ -1,0 +1,280 @@
+{
+	"info": {
+		"_postman_id": "core-trading-service-v3",
+		"name": "Core Trading Service API",
+		"description": "Comprehensive API collection for Core Trading Service.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Trading",
+			"item": [
+				{
+					"name": "Process Trade (Buy/Sell)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"coinId\": \"bitcoin\",\n  \"quantity\": 0.1,\n  \"orderType\": \"BUY\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/orders/pay",
+							"host": ["{{base_url}}"],
+							"path": ["api", "orders", "pay"]
+						}
+					}
+				},
+				{
+					"name": "Get Order History",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/orders",
+							"host": ["{{base_url}}"],
+							"path": ["api", "orders"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Wallet",
+			"item": [
+				{
+					"name": "Get Wallet",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/wallet",
+							"host": ["{{base_url}}"],
+							"path": ["api", "wallet"]
+						}
+					}
+				},
+				{
+					"name": "Wallet Transfer",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"receiverWalletId\": 2,\n  \"amount\": 500,\n  \"purpose\": \"Gift\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/wallet/transfer",
+							"host": ["{{base_url}}"],
+							"path": ["api", "wallet", "transfer"]
+						}
+					}
+				},
+				{
+					"name": "Get Wallet Transactions",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/wallet/transactions",
+							"host": ["{{base_url}}"],
+							"path": ["api", "wallet", "transactions"]
+						}
+					}
+				},
+				{
+					"name": "Razorpay Webhook",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"payload\": {\n        \"payment\": {\n            \"entity\": {\n                \"amount\": 50000,\n                \"notes\": {\n                    \"user_id\": \"1\"\n                }\n            }\n        }\n    }\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/wallet/webhook/razorpay",
+							"host": ["{{base_url}}"],
+							"path": ["api", "wallet", "webhook", "razorpay"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Assets & Watchlist",
+			"item": [
+				{
+					"name": "Get All Assets",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/assets",
+							"host": ["{{base_url}}"],
+							"path": ["api", "assets"]
+						}
+					}
+				},
+				{
+					"name": "Get Specific Asset",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/assets/coin/bitcoin",
+							"host": ["{{base_url}}"],
+							"path": ["api", "assets", "coin", "bitcoin"]
+						}
+					}
+				},
+				{
+					"name": "Get User Watchlist",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/watchlist/user",
+							"host": ["{{base_url}}"],
+							"path": ["api", "watchlist", "user"]
+						}
+					}
+				},
+				{
+					"name": "Toggle Watchlist Coin",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/watchlist/add/coin/ethereum",
+							"host": ["{{base_url}}"],
+							"path": ["api", "watchlist", "add", "coin", "ethereum"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Payment Details",
+			"item": [
+				{
+					"name": "Add Payment Details",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"accountNumber\": \"1234567890\",\n    \"accountHolderName\": \"John Doe\",\n    \"ifsc\": \"HDFC0001234\",\n    \"bankName\": \"HDFC Bank\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/payment-details",
+							"host": ["{{base_url}}"],
+							"path": ["api", "payment-details"]
+						}
+					}
+				},
+				{
+					"name": "Get User Payment Details",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/payment-details/user",
+							"host": ["{{base_url}}"],
+							"path": ["api", "payment-details", "user"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "Withdrawals",
+			"item": [
+				{
+					"name": "Request Withdrawal",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/withdrawal/1000",
+							"host": ["{{base_url}}"],
+							"path": ["api", "withdrawal", "1000"]
+						}
+					}
+				},
+				{
+					"name": "Get User Withdrawal History",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/withdrawal",
+							"host": ["{{base_url}}"],
+							"path": ["api", "withdrawal"]
+						}
+					}
+				},
+				{
+					"name": "Admin: Process Withdrawal",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+							{ "key": "X-User-Role", "value": "ROLE_ADMIN" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/admin/withdrawal/1/proceed/true",
+							"host": ["{{base_url}}"],
+							"path": ["api", "admin", "withdrawal", "1", "proceed", "true"]
+						}
+					}
+				},
+				{
+					"name": "Admin: Get All Withdrawal Requests",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+							{ "key": "X-User-Role", "value": "ROLE_ADMIN" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/admin/withdrawal",
+							"host": ["{{base_url}}"],
+							"path": ["api", "admin", "withdrawal"]
+						}
+					}
+				}
+			]
+		}
+	]
+}

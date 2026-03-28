@@ -37,6 +37,14 @@ public class RequestContext {
         return null;
     }
 
+    public static String getUserFullName() {
+        HttpServletRequest request = getCurrentRequest();
+        if (request != null) {
+            return request.getHeader("X-User-FullName");
+        }
+        return null;
+    }
+
     private static HttpServletRequest getCurrentRequest() {
         ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
         if (attributes != null) {

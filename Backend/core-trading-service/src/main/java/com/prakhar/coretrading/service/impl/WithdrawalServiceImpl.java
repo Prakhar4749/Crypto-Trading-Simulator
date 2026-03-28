@@ -3,6 +3,7 @@ package com.prakhar.coretrading.service.impl;
 import com.prakhar.common.dto.WithdrawalDTO;
 import com.prakhar.common.enums.WithdrawalStatus;
 import com.prakhar.common.exception.*;
+import com.prakhar.common.event.WithdrawalStatusEvent;
 import com.prakhar.coretrading.utils.RequestContext;
 import com.prakhar.coretrading.entity.Wallet;
 import com.prakhar.coretrading.entity.Withdrawal;
@@ -11,6 +12,8 @@ import com.prakhar.coretrading.repository.PaymentDetailsRepository;
 import com.prakhar.coretrading.repository.WalletRepository;
 import com.prakhar.coretrading.repository.WithdrawalRepository;
 import com.prakhar.coretrading.service.WithdrawalService;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,15 +29,21 @@ public class WithdrawalServiceImpl implements WithdrawalService {
     private final WalletRepository walletRepository;
     private final PaymentDetailsRepository paymentDetailsRepository;
     private final TradingMapper mapper;
+    private final KafkaTemplate<String, Object> kafkaTemplate;
+
+    @Value("${kafka.topic.withdrawal:withdrawal-status}")
+    private String withdrawalTopic;
 
     public WithdrawalServiceImpl(WithdrawalRepository withdrawalRepository, 
                                  WalletRepository walletRepository,
                                  PaymentDetailsRepository paymentDetailsRepository,
-                                 TradingMapper mapper) {
+                                 TradingMapper mapper,
+                                 KafkaTemplate<String, Object> kafkaTemplate) {
         this.withdrawalRepository = withdrawalRepository;
         this.walletRepository = walletRepository;
         this.paymentDetailsRepository = paymentDetailsRepository;
         this.mapper = mapper;
+        this.kafkaTemplate = kafkaTemplate;
     }
 
     @Override
@@ -70,6 +79,11 @@ public class WithdrawalServiceImpl implements WithdrawalService {
         withdrawal.setDate(LocalDateTime.now());
         
         Withdrawal saved = withdrawalRepository.save(withdrawal);
+
+        kafkaTemplate.send(withdrawalTopic, new WithdrawalStatusEvent(
+                saved.getId(), userId, saved.getEmail(), RequestContext.getUserFullName(), amount, "PENDING"
+        ));
+
         return mapper.toWithdrawalDTO(saved);
     }
 
@@ -97,6 +111,14 @@ public class WithdrawalServiceImpl implements WithdrawalService {
         withdrawal.setDate(LocalDateTime.now());
         
         Withdrawal saved = withdrawalRepository.save(withdrawal);
+
+        // Note: For processWithdrawal (Admin action), RequestContext might not have user details of the requester.
+        // In a real app, we'd fetch the user's name from User service or store it in Withdrawal entity.
+        // For now, using email as a fallback for name if fullName is missing in event.
+        kafkaTemplate.send(withdrawalTopic, new WithdrawalStatusEvent(
+                saved.getId(), saved.getUserId(), saved.getEmail(), saved.getEmail(), saved.getAmount(), saved.getStatus().name()
+        ));
+
         return mapper.toWithdrawalDTO(saved);
     }
 

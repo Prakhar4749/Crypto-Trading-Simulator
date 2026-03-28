@@ -10,9 +10,13 @@ import com.prakhar.auth.service.AuthService;
 import com.prakhar.auth.service.GoogleAuthService;
 import com.prakhar.common.dto.ApiResponse;
 import com.prakhar.common.dto.UserDTO;
+import com.prakhar.common.dto.WalletDTO;
 import com.prakhar.common.enums.VerificationType;
 import com.prakhar.common.exception.ResourceNotFoundException;
 import com.prakhar.common.util.LogUtil;
+import com.prakhar.auth.dto.request.UpdateProfileRequest;
+import com.prakhar.auth.utils.RequestContext;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -138,5 +142,51 @@ public class AuthController {
             @RequestParam boolean enabled) {
         authService.updateTwoFactorStatus(userId, enabled);
         return ResponseEntity.ok(ApiResponse.success("2FA status updated", null));
+    }
+
+    @PatchMapping("/api/users/set-password")
+    public ResponseEntity<ApiResponse<Void>> setPassword(
+            @RequestHeader("X-User-ID") Long userId,
+            @RequestBody Map<String, String> request) {
+        authService.setPassword(userId, request.get("newPassword"));
+        return ResponseEntity.ok(ApiResponse.success("Password set successfully", null));
+    }
+
+    // Update profile + auto-check KYC
+    @PatchMapping("/api/users/profile/update")
+    public ResponseEntity<ApiResponse<UserDTO>> updateProfile(
+            @RequestBody UpdateProfileRequest request,
+            HttpServletRequest httpRequest) {
+
+        Long userId = RequestContext.getUserId(httpRequest);
+        UserDTO updated = authService.updateProfile(userId, request);
+        return ResponseEntity.ok(ApiResponse.success("Profile updated successfully", updated));
+    }
+
+    // Get KYC status
+    @GetMapping("/api/users/kyc/status")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getKycStatus(
+            HttpServletRequest httpRequest) {
+
+        Long userId = RequestContext.getUserId(httpRequest);
+        Map<String, Object> status = authService.getKycStatus(userId);
+        return ResponseEntity.ok(ApiResponse.success("KYC status fetched", status));
+    }
+
+    // NO JWT REQUIRED — token IS the auth
+    @PostMapping("/auth/claim-bonus")
+    public ResponseEntity<ApiResponse<WalletDTO>> claimBonus(@RequestParam("token") String token) {
+        WalletDTO wallet = authService.claimSignupBonus(token);
+        return ResponseEntity.ok(ApiResponse.success("🎉 Bonus credited to your wallet!", wallet));
+    }
+
+    @GetMapping("/internal/users/{userId}")
+    public ResponseEntity<ApiResponse<UserDTO>> getUserById(
+            @PathVariable Long userId,
+            @RequestHeader("X-Internal-Api-Key") String apiKey) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id=" + userId));
+        return ResponseEntity.ok(ApiResponse.success("User found", userMapper.toDTO(user)));
     }
 }

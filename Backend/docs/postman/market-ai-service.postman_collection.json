@@ -1,0 +1,112 @@
+{
+	"info": {
+		"_postman_id": "market-ai-service-v3",
+		"name": "Market AI Service API",
+		"description": "Comprehensive API collection for Market AI Service.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Coins",
+			"item": [
+				{
+					"name": "Get Coins",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/coins?page=1",
+							"host": ["{{base_url}}"],
+							"path": ["api", "coins"],
+							"query": [{ "key": "page", "value": "1" }]
+						}
+					}
+				},
+				{
+					"name": "Get Top 50 Coins",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/coins/top50",
+							"host": ["{{base_url}}"],
+							"path": ["api", "coins", "top50"]
+						}
+					}
+				},
+				{
+					"name": "Search Coins",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/coins/search?q=bit",
+							"host": ["{{base_url}}"],
+							"path": ["api", "coins", "search"],
+							"query": [{ "key": "q", "value": "bit" }]
+						}
+					}
+				},
+				{
+					"name": "Get Market Chart",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/coins/bitcoin/chart?days=7",
+							"host": ["{{base_url}}"],
+							"path": ["api", "coins", "bitcoin", "chart"],
+							"query": [{ "key": "days", "value": "7" }]
+						}
+					}
+				},
+				{
+					"name": "Get Coin Details",
+					"request": {
+						"method": "GET",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}" }
+						],
+						"url": {
+							"raw": "{{base_url}}/api/coins/details/bitcoin",
+							"host": ["{{base_url}}"],
+							"path": ["api", "coins", "details", "bitcoin"]
+						}
+					}
+				}
+			]
+		},
+		{
+			"name": "AI Bot",
+			"item": [
+				{
+					"name": "Chat with Bot",
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Authorization", "value": "Bearer {{jwt_token}}" },
+							{ "key": "Content-Type", "value": "application/json" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"prompt\": \"Should I buy Bitcoin today?\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/chat/bot",
+							"host": ["{{base_url}}"],
+							"path": ["api", "chat", "bot"]
+						}
+					}
+				}
+			]
+		}
+	]
+}

@@ -22,11 +22,10 @@ public class WithdrawalNotificationConsumer {
         logger.info("Consumed withdrawal event for email: {}", event.getEmail());
         if (event.getEmail() == null) {
             logger.warn("Withdrawal event has no email for userId: {}", event.getUserId());
-            // In a real scenario, fetch email from Auth service
             return;
         }
         try {
-            emailService.sendWithdrawalStatusEmail(event.getEmail(), event.getStatus(), event.getAmount());
+            emailService.sendWithdrawalStatusEmail(event.getEmail(), event.getFullName(), event);
         } catch (Exception e) {
             logger.error("Error processing withdrawal status email: {}", e.getMessage());
         }

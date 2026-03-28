@@ -1,6 +1,9 @@
 package com.prakhar.auth.config;
 
+import com.prakhar.auth.entity.AuthProvider;
 import com.prakhar.auth.entity.User;
+import com.prakhar.auth.enums.KycStatus;
+import com.prakhar.auth.enums.UserRole;
 import com.prakhar.auth.repository.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -8,6 +11,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
+
+import java.time.LocalDateTime;
 
 @Component
 public class DataInitializationComponent implements CommandLineRunner {
@@ -42,9 +47,13 @@ public class DataInitializationComponent implements CommandLineRunner {
             admin.setEmail(adminEmail);
             admin.setMobile("0000000000");
             admin.setPassword(passwordEncoder.encode(adminPassword));
-            admin.setRole("ROLE_ADMIN");
+            admin.setRole(UserRole.ROLE_ADMIN);
+            admin.setKycStatus(KycStatus.VERIFIED);
+            admin.setActive(true);
             admin.setVerified(true);
-            admin.setTwoFactorEnabled(false);
+            admin.setSignupBonusAvailed(true);
+            admin.setKycVerifiedAt(LocalDateTime.now());
+            admin.setAuthProvider(AuthProvider.LOCAL);
             
             userRepository.save(admin);
             logger.info("Admin user initialized: {}", adminEmail);

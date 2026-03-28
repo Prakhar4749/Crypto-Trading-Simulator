@@ -19,9 +19,17 @@ public class OtpNotificationConsumer {
 
     @KafkaListener(topics = "${kafka.topic.otp}", groupId = "${spring.kafka.consumer.group-id}")
     public void consume(OtpNotificationEvent event) {
+        if ("CLAIM_BONUS_EMAIL".equals(event.getEventType())) {
+            return;
+        }
         logger.info("Consumed OTP event for email: {}", event.getEmail());
         try {
-            emailService.sendOtpEmail(event.getEmail(), event.getOtp(), event.getVerificationType().name());
+            emailService.sendOtpEmail(
+                event.getEmail(),
+                event.getFullName(),
+                event.getOtp(),
+                event.getVerificationType().name()
+            );
         } catch (Exception e) {
             logger.error("Error processing OTP event: {}", e.getMessage());
         }

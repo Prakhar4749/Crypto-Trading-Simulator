@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 public class TradeExecutedEvent {
     private Long userId;
     private String email;
+    private String fullName;
     private String coinId;
     private double quantity;
     private BigDecimal price;
@@ -15,9 +16,10 @@ public class TradeExecutedEvent {
 
     public TradeExecutedEvent() {}
 
-    public TradeExecutedEvent(Long userId, String email, String coinId, double quantity, BigDecimal price, String orderType, String status, LocalDateTime timestamp) {
+    public TradeExecutedEvent(Long userId, String email, String fullName, String coinId, double quantity, BigDecimal price, String orderType, String status, LocalDateTime timestamp) {
         this.userId = userId;
         this.email = email;
+        this.fullName = fullName;
         this.coinId = coinId;
         this.quantity = quantity;
         this.price = price;
@@ -30,6 +32,8 @@ public class TradeExecutedEvent {
     public void setUserId(Long userId) { this.userId = userId; }
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }
+    public String getFullName() { return fullName; }
+    public void setFullName(String fullName) { this.fullName = fullName; }
     public String getCoinId() { return coinId; }
     public void setCoinId(String coinId) { this.coinId = coinId; }
     public double getQuantity() { return quantity; }
