@@ -1,0 +1,40 @@
+name: Deploy CoinDesk Backend to VM
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'Backend/**'          # only trigger if Backend code changed
+      # Remove the paths filter if you want every push to deploy
+
+jobs:
+  deploy:
+    name: Deploy to VM
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: SSH into VM and deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          port: 22
+          timeout: 600s          # 10 min — docker builds take time
+          command_timeout: 600s
+          script: |
+            set -e
+
+            REPO_ROOT="${{ secrets.VM_DEPLOY_PATH }}"
+            # e.g. /root/c/coindesk
+
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "  Pulling latest code..."
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            cd "$REPO_ROOT"
+            git fetch origin main
+            git reset --hard origin/main
+
+            echo "  Running deploy script..."
+            bash Backend/scripts/deploy.sh
