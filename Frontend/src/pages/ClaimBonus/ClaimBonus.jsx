@@ -1,14 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import axiosInstance from '../../config/axiosInstance';
+import { useAuth } from '@/contexts/AuthContext';
+import { showToast } from '@/utils/toast';
 
 export default function ClaimBonus() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const [status, setStatus] = useState('loading'); // loading|success|error|already_claimed
+  const { resendBonusLink, user } = useAuth();
+  const [status, setStatus] = useState('loading'); // loading|success|error|already_claimed|expired
   const [wallet, setWallet] = useState(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [countdown, setCountdown] = useState(5);
+  const [resending, setResending] = useState(false);
 
   const token = searchParams.get('token');
 
@@ -46,10 +50,29 @@ export default function ClaimBonus() {
       const msg = error?.message || 'Something went wrong';
       if (msg.toLowerCase().includes('already')) {
         setStatus('already_claimed');
+      } else if (msg.toLowerCase().includes('expired')) {
+        setStatus('expired');
       } else {
         setStatus('error');
       }
       setErrorMessage(msg);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!user) {
+      showToast.info("Please login to request a new claim link");
+      navigate('/signin');
+      return;
+    }
+    setResending(true);
+    try {
+      await resendBonusLink();
+      showToast.success("A new claim link has been sent to your email!");
+    } catch (error) {
+      showToast.fromError(error);
+    } finally {
+      setResending(false);
     }
   };
 
@@ -133,6 +156,32 @@ export default function ClaimBonus() {
           </div>
         )}
 
+        {/* EXPIRED STATE */}
+        {status === 'expired' && (
+          <div>
+            <div className="text-6xl mb-4">⏰</div>
+            <h2 className="text-white text-2xl font-bold mb-2">
+              Link Expired
+            </h2>
+            <p className="text-gray-400 text-sm mb-6">
+              This bonus claim link has expired. Don't worry, you can request a new one!
+            </p>
+            <button
+              disabled={resending}
+              onClick={handleResend}
+              className="w-full bg-[#00B386] text-white py-3 rounded-xl font-semibold hover:bg-[#009970] transition-colors disabled:opacity-50 mb-4"
+            >
+              {resending ? "Sending New Link..." : "Resend Claim Link"}
+            </button>
+            <button
+              onClick={() => navigate('/')}
+              className="w-full text-gray-400 text-sm hover:text-white transition-colors"
+            >
+              Maybe Later
+            </button>
+          </div>
+        )}
+
         {/* ERROR STATE */}
         {status === 'error' && (
           <div>
@@ -144,7 +193,7 @@ export default function ClaimBonus() {
               {errorMessage}
             </p>
             <p className="text-gray-500 text-xs mb-6">
-              The link may have expired (valid for 24 hours). Contact support if this persists.
+              Contact support if this persists.
             </p>
             <button
               onClick={() => navigate('/')}

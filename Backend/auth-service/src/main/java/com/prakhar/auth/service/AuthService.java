@@ -19,4 +19,5 @@ public interface AuthService {
     UserDTO updateProfile(Long userId, UpdateProfileRequest request);
     Map<String, Object> getKycStatus(Long userId);
     WalletDTO claimSignupBonus(String token);
+    void resendBonusLink(Long userId);
 }

@@ -162,6 +162,19 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
+  const resendBonusLink = async () => {
+    dispatch({ type: 'AUTH_REQUEST' })
+    try {
+      const response = await axiosInstance.post(`/api/users/resend-bonus-link`)
+      dispatch({ type: 'AUTH_SUCCESS', payload: {} })
+      showToast.success("Bonus claim link resent to your email!")
+      return response.data
+    } catch (err) {
+      showToast.fromError(err)
+      throw err
+    }
+  }
+
   const updateUserProfile = async (userData) => {
     dispatch({ type: 'AUTH_REQUEST' })
     try {
@@ -298,7 +311,8 @@ export const AuthProvider = ({ children }) => {
       verifyOtp, 
       enableTwoStepAuthentication, 
       sendResetPasswordOtp, 
-      verifyResetPasswordOtp 
+      verifyResetPasswordOtp,
+      resendBonusLink
     }}>
       {children}
     </AuthContext.Provider>

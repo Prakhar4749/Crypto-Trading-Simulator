@@ -69,7 +69,7 @@ const Navbar = () => {
                   <img 
                     src={import.meta.env.VITE_LOGO_URL || "/CoinDesk-logo.png"} 
                     alt={import.meta.env.VITE_APP_NAME || "CoinDesk"} 
-                    className="h-8 w-auto cursor-pointer"
+                    className="h-10 w-auto cursor-pointer"
                     onClick={() => navigate("/")}
                   />
                 </SheetTitle>
@@ -81,13 +81,13 @@ const Navbar = () => {
           <img 
             src={import.meta.env.VITE_LOGO_URL || "/CoinDesk-logo.png"} 
             alt={import.meta.env.VITE_APP_NAME || "CoinDesk"} 
-            className="h-8 w-auto cursor-pointer hidden lg:block"
+            className="h-10 lg:h-12 w-auto cursor-pointer hidden lg:block object-contain"
             onClick={() => navigate("/")}
           />
           <img 
             src={import.meta.env.VITE_LOGO_URL || "/CoinDesk-logo.png"} 
             alt={import.meta.env.VITE_APP_NAME || "CoinDesk"} 
-            className="h-8 w-auto cursor-pointer lg:hidden"
+            className="h-10 w-auto cursor-pointer lg:hidden object-contain"
             onClick={() => navigate("/")}
           />
         </div>

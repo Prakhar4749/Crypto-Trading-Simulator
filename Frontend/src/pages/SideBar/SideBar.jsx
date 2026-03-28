@@ -93,7 +93,7 @@ const SideBar = ({ isSheet }) => {
           <img 
             src={import.meta.env.VITE_LOGO_URL || "/CoinDesk-logo.png"} 
             alt={import.meta.env.VITE_APP_NAME || "CoinDesk"} 
-            className="h-8 w-auto cursor-pointer"
+            className="h-10 lg:h-12 w-auto cursor-pointer object-contain"
             onClick={() => navigate("/")}
           />
         </div>

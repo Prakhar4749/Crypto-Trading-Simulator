@@ -335,6 +335,17 @@ public class CoreTradingServiceImpl implements CoreTradingService {
         Wallet wallet = walletRepository.findByUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Wallet", "userId=" + userId));
 
+        // IDEMPOTENCY CHECK: Ensure bonus is not already credited
+        if (walletTransactionRepository.existsByWalletIdAndType(wallet.getId(), WalletTransactionType.SIGNUP_BONUS)) {
+            log.info(LogUtil.info(
+                "core-trading-service",
+                "creditSignupBonus",
+                userId.toString(),
+                "Bonus already credited for this wallet, skipping"
+            ));
+            return mapper.toWalletDTO(wallet);
+        }
+
         BigDecimal bonusAmount = new BigDecimal(signupBonusAmount);
         wallet.setBalance(wallet.getBalance().add(bonusAmount));
         walletRepository.save(wallet);
@@ -352,7 +363,7 @@ public class CoreTradingServiceImpl implements CoreTradingService {
             "core-trading-service",
             "creditSignupBonus",
             userId.toString(),
-            "Bonus credited: $" + bonusAmount
+            "Bonus credited successfully: $" + bonusAmount
         ));
 
         return mapper.toWalletDTO(wallet);

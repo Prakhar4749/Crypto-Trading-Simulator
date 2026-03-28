@@ -20,10 +20,16 @@ import {
 console.log("[Main] CoinDesk app mounted")
 console.log("[Main] Running without Redux — Context API only")
 
+const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+if (!googleClientId) {
+  console.warn("[Main] VITE_GOOGLE_CLIENT_ID is missing! Google Login will not work.");
+}
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>
-      <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+      <GoogleOAuthProvider clientId={googleClientId}>
         <ErrorBoundary>
           <ThemeProvider>
             <AuthProvider>

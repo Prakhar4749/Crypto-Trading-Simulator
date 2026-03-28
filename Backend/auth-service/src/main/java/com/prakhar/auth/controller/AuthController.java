@@ -182,6 +182,12 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.success("🎉 Bonus credited to your wallet!", wallet));
     }
 
+    @PostMapping("/api/users/resend-bonus-link")
+    public ResponseEntity<ApiResponse<Void>> resendBonusLink(@RequestHeader("X-User-ID") Long userId) {
+        authService.resendBonusLink(userId);
+        return ResponseEntity.ok(ApiResponse.success("Bonus claim link resent successfully", null));
+    }
+
     @GetMapping("/internal/users/{userId}")
     public ResponseEntity<ApiResponse<UserDTO>> getUserById(
             @PathVariable Long userId,

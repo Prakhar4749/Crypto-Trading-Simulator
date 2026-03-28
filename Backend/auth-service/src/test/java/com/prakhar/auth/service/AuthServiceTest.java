@@ -67,7 +67,7 @@ class AuthServiceTest {
         u.setId(1L);
         return u;
     });
-    when(coreTradingClient.createWalletForUser(any(), any()))
+    when(coreTradingClient.createWalletForUser(any()))
       .thenReturn(ApiResponse.success("ok", new WalletDTO()));
     when(jwtProvider.generateToken(any(), any(), any(), any()))
       .thenReturn("jwt-token");
@@ -142,7 +142,7 @@ class AuthServiceTest {
 
     when(userRepository.findByBonusClaimToken("valid-token"))
       .thenReturn(Optional.of(user));
-    when(coreTradingClient.creditSignupBonus(any(), any()))
+    when(coreTradingClient.creditSignupBonus(any()))
       .thenReturn(ApiResponse.success("ok", new WalletDTO()));
 
     assertDoesNotThrow(() -> 

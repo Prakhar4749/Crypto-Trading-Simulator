@@ -447,14 +447,15 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByBonusClaimToken(token)
             .orElseThrow(() -> new BusinessException("Invalid or expired bonus claim link."));
 
-        // 2. Check already claimed
+        // 2. Double-check already claimed (CRITICAL)
         if (user.isSignupBonusAvailed()) {
+            log.warn(LogUtil.warn("auth-service", "claimSignupBonus", user.getId().toString(), "User already claimed bonus, skipping Feign call"));
             throw new BusinessException("Bonus has already been claimed for this account.");
         }
 
         // 3. Check token expiry
         if (LocalDateTime.now().isAfter(user.getBonusClaimTokenExpiry())) {
-            throw new BusinessException("This bonus claim link has expired. Please contact support.");
+            throw new BusinessException("This bonus claim link has expired. Please request a new one from your profile.");
         }
 
         // 4. Check email verified
@@ -466,7 +467,7 @@ public class AuthServiceImpl implements AuthService {
         try {
             WalletDTO wallet = creditBonusViaFeign(user.getId());
 
-            // 6. Mark bonus as availed
+            // 6. Mark bonus as availed (COMMIT)
             user.setSignupBonusAvailed(true);
             user.setBonusClaimToken(null);
             user.setBonusClaimTokenExpiry(null);
@@ -476,7 +477,7 @@ public class AuthServiceImpl implements AuthService {
                 "auth-service",
                 "POST /auth/claim-bonus",
                 user.getId().toString(),
-                "Signup bonus claimed successfully"
+                "Signup bonus marked as availed in auth-service"
             ));
 
             return wallet;
@@ -511,6 +512,41 @@ public class AuthServiceImpl implements AuthService {
             user.setKycVerifiedAt(LocalDateTime.now());
             log.info(LogUtil.info("auth-service", "KYC", user.getId().toString(), "KYC status changed to VERIFIED"));
         }
+    }
+
+    @Override
+    @Transactional
+    public void resendBonusLink(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", String.valueOf(userId)));
+
+        if (user.isSignupBonusAvailed()) {
+            throw new BusinessException("Bonus has already been claimed.");
+        }
+
+        // Generate new token
+        String newToken = BonusTokenUtils.generateToken();
+        user.setBonusClaimToken(newToken);
+        user.setBonusClaimTokenExpiry(BonusTokenUtils.getExpiry());
+        userRepository.save(user);
+
+        // Send via Kafka
+        kafkaTemplate.send(otpNotificationTopic, new OtpNotificationEvent(
+            user.getId(), 
+            user.getEmail(), 
+            user.getFullName(), 
+            null, 
+            null, 
+            "CLAIM_BONUS_EMAIL", 
+            newToken
+        ));
+
+        log.info(LogUtil.info(
+            "auth-service",
+            "resendBonusLink",
+            userId.toString(),
+            "New bonus claim link sent to: " + maskEmail(user.getEmail())
+        ));
     }
 
     private String maskEmail(String email) {

@@ -2,17 +2,18 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
-import { BadgeCheck, Mail, ShieldCheck, User, Calendar, Globe, MapPin, Hash, Lock, ShieldAlert, Phone, Clock } from "lucide-react";
+import { BadgeCheck, Mail, ShieldCheck, User, Calendar, Globe, MapPin, Hash, Lock, ShieldAlert, Phone, Clock, Gift, RefreshCw } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useNavigate, useLocation } from "react-router-dom";
 import EditProfileModal from "@/components/modals/EditProfileModal";
 import KycStatusCard from "@/components/KycStatusCard";
 
 const Profile = () => {
-  const { user } = useAuth();
+  const { user, resendBonusLink } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [editOpen, setEditOpen] = useState(false);
+  const [resending, setResending] = useState(false);
 
   useEffect(() => {
     console.log("[Profile] mounted");
@@ -29,6 +30,17 @@ const Profile = () => {
       }, 100);
     }
   }, [location.state]);
+
+  const handleResendBonus = async () => {
+    setResending(true);
+    try {
+      await resendBonusLink();
+    } catch (error) {
+      // Toast already shown in context
+    } finally {
+      setResending(false);
+    }
+  };
 
   const openVerification = (type) => {
     console.log("[Profile] opening verification", { type });
@@ -48,7 +60,29 @@ const Profile = () => {
   return (
     <div className="bg-app-bg dark:bg-[#0f0f1a] min-h-screen p-6 transition-colors">
       <div className="max-w-4xl mx-auto space-y-6">
-        <h1 className="text-app-textPrimary dark:text-white font-bold text-2xl mb-6">User Profile</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-app-textPrimary dark:text-white font-bold text-2xl">User Profile</h1>
+          
+          {/* SIGNUP BONUS SECTION */}
+          {!user?.signupBonusAvailed && (
+            <div className="flex items-center gap-3 bg-brand-primary/10 border border-brand-primary/20 rounded-xl px-4 py-3 shadow-sm">
+              <div className="bg-brand-primary p-2 rounded-lg">
+                <Gift className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <p className="text-brand-primary font-bold text-sm">$10,000 Bonus Waiting</p>
+                <button 
+                  disabled={resending}
+                  onClick={handleResendBonus}
+                  className="text-[10px] font-black uppercase tracking-widest flex items-center gap-1 text-brand-primary/80 hover:text-brand-primary transition-colors disabled:opacity-50"
+                >
+                  {resending ? "Sending..." : "Resend Claim Link"} 
+                  {!resending && <RefreshCw className="h-2.5 w-2.5" />}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         <KycStatusCard onAction={() => setEditOpen(true)} />
 
