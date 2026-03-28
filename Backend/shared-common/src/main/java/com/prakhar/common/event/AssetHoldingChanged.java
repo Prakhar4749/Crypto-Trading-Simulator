@@ -1,14 +1,16 @@
 package com.prakhar.common.event;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import lombok.AllArgsConstructor;
 
 @Data
-@NoArgsConstructor
 @AllArgsConstructor
+@NoArgsConstructor
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class AssetHoldingChanged {
     private Long userId;
     private String coinId;
     private double newQuantity;
-    private String changeType; // BUY/SELL
 }

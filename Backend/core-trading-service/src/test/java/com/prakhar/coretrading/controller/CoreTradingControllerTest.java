@@ -44,6 +44,7 @@ class CoreTradingControllerTest {
   @MockBean private OrderRepository orderRepository;
   @MockBean private AssetRepository assetRepository;
   @MockBean private WatchlistCoinRepository watchlistCoinRepository;
+  @MockBean private com.prakhar.coretrading.feign.MarketAiClient marketAiClient;
   @MockBean private TradingMapper mapper;
 
   @Test

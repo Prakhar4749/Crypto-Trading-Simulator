@@ -1,151 +1,159 @@
-import { useEffect, useState } from "react";
-import ReactApexChart from "react-apexcharts";
-import { Button } from "@/components/ui/button";
-import { useCoins } from "@/contexts/CoinContext";
-import { useAuth } from "@/contexts/AuthContext";
+import { useState, useEffect } from 'react';
+import { useCoins } from '../../contexts/CoinContext';
+import ReactApexChart from 'react-apexcharts';
 
-const timeSeries = [
-  { lable: "1D", value: 1 },
-  { lable: "1W", value: 7 },
-  { lable: "1M", value: 30 },
-  { lable: "3M", value: 90 },
-  { lable: "6M", value: 180 },
-  { lable: "1Y", value: 365 },
+const TIME_RANGES = [
+  { label: '1D', days: 1 },
+  { label: '1W', days: 7 },
+  { label: '1M', days: 30 },
+  { label: '3M', days: 90 },
+  { label: '1Y', days: 365 },
 ];
 
-const StockChart = ({ coinId }) => {
-  const [activeType, setActiveType] = useState(timeSeries[0]);
-  const { marketChart, getCoinMarketChart } = useCoins();
-  const { jwt } = useAuth();
-
-  const series = [
-    {
-      name: "Price",
-      data: marketChart.data,
-    },
-  ];
-
-  const options = {
-    chart: {
-      id: "area-datetime",
-      type: "area",
-      height: 450,
-      zoom: {
-        autoScaleYaxis: true,
-      },
-      toolbar: {
-        show: false
-      },
-      fontFamily: 'Inter, sans-serif'
-    },
-    dataLabels: {
-      enabled: false,
-    },
-    stroke: {
-      curve: 'smooth',
-      width: 2,
-      colors: ['#00B386']
-    },
-    xaxis: {
-      type: "datetime",
-      labels: {
-        style: {
-          colors: '#6B7280',
-          fontSize: '12px'
-        }
-      },
-      axisBorder: {
-        show: false
-      },
-      axisTicks: {
-        show: false
-      }
-    },
-    yaxis: {
-      labels: {
-        style: {
-          colors: '#6B7280',
-          fontSize: '12px'
-        },
-        formatter: (val) => `$${val.toLocaleString()}`
-      }
-    },
-    colors: ["#00B386"],
-    tooltip: {
-      theme: "light",
-      x: {
-        format: "dd MMM yyyy"
-      },
-      style: {
-        fontSize: '12px'
-      }
-    },
-    fill: {
-      type: "gradient",
-      gradient: {
-        shadeIntensity: 1,
-        opacityFrom: 0.45,
-        opacityTo: 0.05,
-        stops: [0, 100],
-      },
-    },
-    grid: {
-      borderColor: "#E5E7EB",
-      strokeDashArray: 4,
-      show: true,
-      padding: {
-        top: 0,
-        right: 0,
-        bottom: 0,
-        left: 10
-      }
-    },
-  };
+export default function StockChart({ coinId }) {
+  const { getCoinChart } = useCoins();
+  const [chartData, setChartData] = useState([]);
+  const [selectedRange, setSelectedRange] = useState(TIME_RANGES[1]); // Default 1W
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (coinId) {
-      console.log("[StockChart] fetching chart", { coinId, days: activeType.value });
-      getCoinMarketChart(coinId, activeType.value);
+      loadChart(selectedRange.days);
     }
-  }, [coinId, activeType.value]);
+  }, [coinId, selectedRange]);
+
+  const loadChart = async (days) => {
+    setLoading(true);
+    try {
+      const data = await getCoinChart(coinId, days);
+      // CoinGecko returns: 
+      // { prices: [[timestamp, price], ...] }
+      if (data?.prices) {
+        setChartData(data.prices.map(
+          ([timestamp, price]) => ({
+            x: new Date(timestamp),
+            y: price
+          })
+        ));
+      }
+    } catch (error) {
+      console.error('Chart error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const chartOptions = {
+    chart: {
+      type: 'area',
+      background: 'transparent',
+      toolbar: { show: false },
+      zoom: { enabled: false },
+    },
+    theme: { mode: 'dark' },
+    stroke: {
+      curve: 'smooth',
+      width: 2,
+      colors: ['#00B386'],
+    },
+    fill: {
+      type: 'gradient',
+      gradient: {
+        shadeIntensity: 1,
+        opacityFrom: 0.3,
+        opacityTo: 0.01,
+        stops: [0, 100],
+        colorStops: [{
+          offset: 0,
+          color: '#00B386',
+          opacity: 0.3
+        }, {
+          offset: 100,
+          color: '#00B386',
+          opacity: 0
+        }]
+      }
+    },
+    xaxis: {
+      type: 'datetime',
+      labels: {
+        style: { colors: '#9ca3af' },
+        datetimeFormatter: {
+          day: 'dd MMM',
+          hour: 'HH:mm'
+        }
+      },
+      axisBorder: { show: false },
+      axisTicks: { show: false },
+    },
+    yaxis: {
+      labels: {
+        style: { colors: '#9ca3af' },
+        formatter: (val) => 
+          '$' + val.toLocaleString('en-US', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+          })
+      }
+    },
+    grid: {
+      borderColor: 'rgba(255,255,255,0.05)',
+      strokeDashArray: 4,
+    },
+    tooltip: {
+      theme: 'dark',
+      x: { format: 'dd MMM HH:mm' },
+      y: {
+        formatter: (val) =>
+          '$' + val.toLocaleString('en-US', {
+            minimumFractionDigits: 2
+          })
+      }
+    },
+    dataLabels: { enabled: false },
+  };
 
   return (
-    <div className="bg-white rounded-card shadow-card border border-app-border p-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-        <h2 className="text-app-textPrimary font-semibold text-lg">Price History</h2>
-        <div className="flex flex-wrap items-center gap-2 p-1 bg-app-bg border border-app-border rounded-pill">
-          {timeSeries.map((item) => (
-            <Button
-              key={item.lable}
-              onClick={() => setActiveType(item)}
-              variant="ghost"
-              className={`h-7 px-4 text-xs font-semibold rounded-pill transition-all ${
-                activeType.lable === item.lable 
-                  ? "bg-brand-primary text-white hover:bg-brand-dark shadow-sm" 
-                  : "text-app-textSecondary hover:bg-brand-light"
-              }`}
-            >
-              {item.lable}
-            </Button>
-          ))}
-        </div>
+    <div className="bg-[#1a1a2e] rounded-xl p-4">
+      
+      {/* Time Range Selector */}
+      <div className="flex gap-1 mb-4">
+        {TIME_RANGES.map((range) => (
+          <button
+            key={range.label}
+            onClick={() => setSelectedRange(range)}
+            className={`px-3 py-1.5 
+              rounded-lg text-xs font-medium 
+              transition-colors
+              ${selectedRange.label === range.label
+                ? 'bg-[#00B386] text-white'
+                : 'text-gray-400 hover:bg-white/5'
+              }`}>
+            {range.label}
+          </button>
+        ))}
       </div>
 
-      <div className="h-[450px] w-full relative">
-        {marketChart.loading && (
-          <div className="absolute inset-0 bg-white/50 backdrop-blur-[1px] flex items-center justify-center z-10">
-            <div className="w-10 h-10 border-4 border-brand-light border-t-brand-primary rounded-full animate-spin"></div>
-          </div>
-        )}
+      {/* Chart */}
+      {loading ? (
+        <div className="h-64 flex items-center justify-center">
+          <div className="w-8 h-8 border-2 border-[#00B386] border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : chartData.length > 0 ? (
         <ReactApexChart
-          options={options}
-          series={series}
           type="area"
-          height={450}
+          height={280}
+          options={chartOptions}
+          series={[{ 
+            name: 'Price', 
+            data: chartData 
+          }]}
         />
-      </div>
+      ) : (
+        <div className="h-64 flex items-center justify-center text-gray-500 text-sm">
+          No chart data available
+        </div>
+      )}
     </div>
   );
-};
-
-export default StockChart;
+}

@@ -31,13 +31,26 @@ const WatchlistContext = createContext()
 export const WatchlistProvider = ({ children }) => {
   const [state, dispatch] = useReducer(watchlistReducer, initialState)
 
-  const getUserWatchlist = async () => {
+  const getUserWatchlist = async (forceRefresh = false) => {
+    // If we already have items and not forcing refresh, return existing items
+    if (!forceRefresh && state.items && state.items.length > 0 && typeof state.items[0] === 'object') {
+      console.log("[WatchlistContext] Using cached items from state");
+      return state.items;
+    }
+
     dispatch({ type: 'WATCHLIST_REQUEST' })
     try {
+      console.log("[WatchlistContext] Fetching watchlist from backend...");
       const response = await axiosInstance.get('/api/watchlist/user')
-      dispatch({ type: 'WATCHLIST_SUCCESS', payload: { watchlist: response.data, items: response.data.items || [] } })
-      return response.data
+      
+      // The backend returns a list of objects (coin details)
+      const data = response.data || [];
+      console.log("[WatchlistContext] Received items:", data);
+      
+      dispatch({ type: 'WATCHLIST_SUCCESS', payload: { items: data } })
+      return data
     } catch (error) {
+      console.error("[WatchlistContext] Error fetching watchlist:", error);
       dispatch({ type: 'WATCHLIST_FAILURE', payload: error.message })
       throw error
     }
@@ -46,10 +59,28 @@ export const WatchlistProvider = ({ children }) => {
   const addToWatchlist = async (coinId) => {
     dispatch({ type: 'WATCHLIST_REQUEST' })
     try {
-      const response = await axiosInstance.patch(`/api/watchlist/add/coin/${coinId}`)
-      dispatch({ type: 'WATCHLIST_SUCCESS', payload: { watchlist: response.data, items: response.data.items || [] } })
-      showToast.success("Watchlist updated")
-      return response.data
+      await axiosInstance.patch(`/api/watchlist/add/coin/${coinId}`)
+      
+      // Immediately update local state to provide instant feedback
+      // We toggle the coin - if it's there, remove it; if not, we'll need to fetch details
+      const isAlreadyInWatchlist = state.items.some(item => 
+        (typeof item === 'string' ? item === coinId : item.id === coinId)
+      );
+
+      if (isAlreadyInWatchlist) {
+        // Optimization: Remove locally without a full refetch
+        const updatedItems = state.items.filter(item => 
+          (typeof item === 'string' ? item !== coinId : item.id !== coinId)
+        );
+        dispatch({ type: 'WATCHLIST_SUCCESS', payload: { items: updatedItems } })
+        showToast.success("Removed from watchlist")
+      } else {
+        // It's a new add, we need full details for the watchlist page
+        // A full refresh is better here to ensure we have the correct CoinGecko object
+        const response = await axiosInstance.get('/api/watchlist/user')
+        dispatch({ type: 'WATCHLIST_SUCCESS', payload: { items: response.data || [] } })
+        showToast.success("Added to watchlist")
+      }
     } catch (error) {
       dispatch({ type: 'WATCHLIST_FAILURE', payload: error.message })
       showToast.fromError(error)

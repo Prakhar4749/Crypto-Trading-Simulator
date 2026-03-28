@@ -13,7 +13,7 @@ public interface AuthService {
     void sendVerificationCode(Long userId, String email, VerificationType type);
     void verifyEmail(Long userId, String otp) throws Exception;
     String sendForgotPasswordOtp(String email) throws Exception;
-    void resetPassword(String sessionId, String otp, String newPassword) throws Exception;
+    void resetPassword(String email, String otp, String newPassword) throws Exception;
     void updateTwoFactorStatus(Long userId, boolean status);
     void setPassword(Long userId, String newPassword);
     UserDTO updateProfile(Long userId, UpdateProfileRequest request);

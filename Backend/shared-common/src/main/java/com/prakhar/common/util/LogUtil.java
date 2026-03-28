@@ -1,6 +1,5 @@
 package com.prakhar.common.util;
 
-import org.slf4j.Logger;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -57,56 +56,30 @@ public class LogUtil {
           + key.substring(key.length() - 4);
     }
 
-    // ═══ LOG BUILDERS ═══
+    // ═══ LOG BUILDERS (Using concatenation to avoid String.format issues with % characters) ═══
     public static String info(String service, 
         String path, String userId, String message) {
-        return String.format(
-          "%s | INFO  | %s | %s | userId=%s | %s",
-          now(), service, path, 
-          userId != null ? userId : "anonymous", 
-          message
-        );
+        return now() + " | INFO  | " + service + " | " + path + " | userId=" + (userId != null ? userId : "anonymous") + " | " + message;
     }
 
     public static String warn(String service,
         String path, String userId, String message) {
-        return String.format(
-          "%s | WARN  | %s | %s | userId=%s | %s",
-          now(), service, path,
-          userId != null ? userId : "anonymous",
-          message
-        );
+        return now() + " | WARN  | " + service + " | " + path + " | userId=" + (userId != null ? userId : "anonymous") + " | " + message;
     }
 
     public static String error(String service,
         String path, String userId, String reason) {
-        return String.format(
-          "%s | ERROR | %s | %s | userId=%s | reason=%s",
-          now(), service, path,
-          userId != null ? userId : "anonymous",
-          reason
-        );
+        return now() + " | ERROR | " + service + " | " + path + " | userId=" + (userId != null ? userId : "anonymous") + " | reason=" + reason;
     }
 
     public static String slow(String service,
         String path, String userId, long ms) {
-        return String.format(
-          "%s | SLOW  | %s | %s | userId=%s | " +
-          "⚠️ SLOW REQUEST: %dms",
-          now(), service, path,
-          userId != null ? userId : "anonymous",
-          ms
-        );
+        return now() + " | SLOW  | " + service + " | " + path + " | userId=" + (userId != null ? userId : "anonymous") + " | ⚠️ SLOW REQUEST: " + ms + "ms";
     }
 
     public static String debug(String service,
         String path, String userId, 
         String field, Object value) {
-        return String.format(
-          "%s | DEBUG | %s | %s | userId=%s | %s=%s",
-          now(), service, path,
-          userId != null ? userId : "anonymous",
-          field, value
-        );
+        return now() + " | DEBUG | " + service + " | " + path + " | userId=" + (userId != null ? userId : "anonymous") + " | " + field + "=" + value;
     }
 }

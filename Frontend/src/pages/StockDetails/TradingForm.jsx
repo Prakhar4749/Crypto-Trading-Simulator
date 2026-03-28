@@ -2,83 +2,135 @@ import { Avatar, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { DialogClose } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { DotIcon } from "@radix-ui/react-icons";
-import { Wallet, Info } from "lucide-react";
+import { Wallet, Info, ArrowRightLeft, Maximize2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useCoins } from "@/contexts/CoinContext";
 import { useAssets } from "@/contexts/AssetsContext";
 import { useWallet } from "@/contexts/WalletContext";
 import { useOrder } from "@/contexts/OrderContext";
-import { useAuth } from "@/contexts/AuthContext";
-import SpinnerBackdrop from "@/components/custom/SpinnerBackdrop";
+import { showToast } from "@/utils/toast";
 
 const TradingForm = () => {
   const { coinDetails } = useCoins();
-  const { assetDetails, loading: assetLoading, getAssetByUserIdAndCoinId } = useAssets();
-  const { userWallet } = useWallet();
+  const { assetDetails, getAssetByUserIdAndCoinId } = useAssets();
+  const { userWallet, getUserWallet } = useWallet();
   const { payOrder } = useOrder();
-  const { jwt } = useAuth();
   
-  const [quantity, setQuantity] = useState(0);
-  const [amount, setAmount] = useState("");
   const [orderType, setOrderType] = useState("BUY");
+  const [inputMode, setInputMode] = useState("USD"); // "USD" or "CRYPTO"
+  
+  const [amount, setAmount] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const currentPrice = coinDetails?.market_data?.current_price?.usd || 0;
 
   useEffect(() => {
-    const currentJwt = jwt || localStorage.getItem("jwt");
     if (coinDetails?.id) {
-      getAssetByUserIdAndCoinId(currentJwt, coinDetails.id);
+      getAssetByUserIdAndCoinId(coinDetails.id);
+      getUserWallet();
     }
   }, [coinDetails?.id]);
 
-  const handleOnChange = (e) => {
+  const handleAmountChange = (e) => {
     const val = e.target.value;
     setAmount(val);
-    if (!val || isNaN(val)) {
-      setQuantity(0);
+    if (!val || isNaN(val) || currentPrice === 0) {
+      setQuantity("");
       return;
     }
-    const volume = calculateBuyCost(parseFloat(val), coinDetails.market_data.current_price.usd);
-    setQuantity(volume);
+    const calculatedQty = (parseFloat(val) / currentPrice).toFixed(8);
+    setQuantity(calculatedQty);
   };
 
-  function calculateBuyCost(amountUSD, cryptoPrice) {
-    let volume = amountUSD / cryptoPrice;
-    return volume.toFixed(8);
-  }
+  const handleQuantityChange = (e) => {
+    const val = e.target.value;
+    setQuantity(val);
+    if (!val || isNaN(val) || currentPrice === 0) {
+      setAmount("");
+      return;
+    }
+    const calculatedAmount = (parseFloat(val) * currentPrice).toFixed(2);
+    setAmount(calculatedAmount);
+  };
+
+  const handleMax = () => {
+    if (orderType === "SELL") {
+      const maxQty = assetDetails?.quantity || 0;
+      setQuantity(maxQty.toString());
+      setAmount((maxQty * currentPrice).toFixed(2));
+      setInputMode("CRYPTO");
+    } else {
+      const maxUSD = userWallet?.balance || 0;
+      setAmount(maxUSD.toString());
+      setQuantity((maxUSD / currentPrice).toFixed(8));
+      setInputMode("USD");
+    }
+  };
+
+  const toggleInputMode = () => {
+    setInputMode(prev => prev === "USD" ? "CRYPTO" : "USD");
+  };
 
   const handleOrder = async () => {
-    const currentJwt = jwt || localStorage.getItem("jwt");
-    const orderData = {
-      coinId: coinDetails?.id,
-      quantity: parseFloat(quantity),
-      orderType,
-    };
-    console.log("[TradingForm] order submitted", orderData);
-    await payOrder(currentJwt, orderData);
+    if (!quantity || Number(quantity) <= 0) {
+      showToast.error("Invalid input", "Please enter an amount to trade");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await payOrder({
+        coinId: coinDetails.id,
+        quantity: Number(quantity),
+        orderType: orderType
+      });
+
+      showToast.success(
+        `${orderType} Order Successful`,
+        `You ${orderType === 'BUY' ? 'bought' : 'sold'} ${quantity} ${coinDetails.symbol.toUpperCase()}`
+      );
+
+      // Refresh data
+      await getUserWallet();
+      await getAssetByUserIdAndCoinId(coinDetails.id);
+      setAmount("");
+      setQuantity("");
+
+    } catch (error) {
+      // Toast shown by context
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const isInsufficientBalance = orderType === "BUY" && (parseFloat(amount) > userWallet?.balance);
+  const isInsufficientBalance = orderType === "BUY" && (parseFloat(amount) > (userWallet?.balance || 0));
   const isInsufficientQuantity = orderType === "SELL" && (parseFloat(quantity) > (assetDetails?.quantity || 0));
 
   return (
-    <div className="bg-white rounded-card shadow-card border border-app-border overflow-hidden w-full max-w-md">
+    <div className="bg-white dark:bg-[#1a1a2e] rounded-card shadow-card border border-app-border dark:border-gray-800 overflow-hidden w-full max-w-md">
       <div className="p-6 space-y-6">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="text-app-textPrimary font-bold text-lg">Trade {coinDetails?.name}</h2>
-          <div className="flex items-center gap-1.5 bg-brand-light px-3 py-1 rounded-pill">
-            <Info className="h-3.5 w-3.5 text-brand-primary" />
-            <span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider">Market Order</span>
+          <div className="flex items-center gap-3">
+            <Avatar className="h-8 w-8">
+              <AvatarImage src={coinDetails?.image?.small} />
+            </Avatar>
+            <h2 className="text-app-textPrimary dark:text-white font-bold text-lg">Trade {coinDetails?.name}</h2>
+          </div>
+          <div className="flex items-center gap-1.5 bg-brand-light dark:bg-brand-dark/20 px-3 py-1 rounded-pill border border-brand-primary/10">
+            <Info className="h-3 w-3 text-brand-primary" />
+            <span className="text-[10px] font-bold text-brand-primary uppercase tracking-wider">Market</span>
           </div>
         </div>
 
         {/* Order Type Tabs */}
-        <div className="flex p-1 bg-app-bg border border-app-border rounded-input">
+        <div className="flex p-1 bg-app-bg dark:bg-gray-900/50 border border-app-border dark:border-gray-800 rounded-input">
           <button
             onClick={() => setOrderType("BUY")}
             className={`flex-1 py-2.5 rounded-input font-bold text-sm transition-all ${
               orderType === "BUY" 
                 ? "bg-brand-primary text-white shadow-md scale-[1.02]" 
-                : "text-app-textSecondary hover:bg-brand-light"
+                : "text-app-textSecondary dark:text-gray-400 hover:bg-brand-light dark:hover:bg-gray-800"
             }`}
           >
             BUY
@@ -88,7 +140,7 @@ const TradingForm = () => {
             className={`flex-1 py-2.5 rounded-input font-bold text-sm transition-all ${
               orderType === "SELL" 
                 ? "bg-app-error text-white shadow-md scale-[1.02]" 
-                : "text-app-textSecondary hover:bg-red-50"
+                : "text-app-textSecondary dark:text-gray-400 hover:bg-red-50 dark:hover:bg-red-950/20"
             }`}
           >
             SELL
@@ -97,77 +149,115 @@ const TradingForm = () => {
 
         {/* Input Section */}
         <div className="space-y-4">
-          <div className="space-y-2">
-            <div className="flex justify-between items-end">
-              <label className="text-app-textSecondary text-xs font-semibold uppercase tracking-wider">
-                Amount in USD
-              </label>
-              <div className="flex items-center gap-1.5 text-xs">
-                <Wallet className="h-3 w-3 text-app-textSecondary" />
-                <span className="text-app-textSecondary">Available:</span>
-                <span className="text-app-textPrimary font-bold">
-                  {orderType === "BUY" 
-                    ? `$${userWallet?.balance?.toLocaleString()}` 
-                    : `${assetDetails?.quantity || 0} ${coinDetails?.symbol?.toUpperCase()}`}
-                </span>
+          <div className="space-y-3">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <label className="text-app-textSecondary dark:text-gray-400 text-[10px] font-bold uppercase tracking-widest">
+                  {inputMode === "USD" ? "Enter Amount" : "Enter Quantity"}
+                </label>
+                <button 
+                  onClick={toggleInputMode}
+                  className="p-1 hover:bg-app-bg dark:hover:bg-gray-800 rounded-md transition-colors text-brand-primary"
+                  title="Switch Input Mode"
+                >
+                  <ArrowRightLeft className="h-3 w-3" />
+                </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 text-[10px]">
+                  <Wallet className="h-3 w-3 text-app-textSecondary" />
+                  <span className="text-app-textSecondary dark:text-gray-500">Available:</span>
+                  <span className="text-app-textPrimary dark:text-gray-300 font-bold">
+                    {orderType === "BUY" 
+                      ? `$${(userWallet?.balance || 0).toLocaleString()}` 
+                      : `${(assetDetails?.quantity || 0).toFixed(4)} ${coinDetails?.symbol?.toUpperCase()}`}
+                  </span>
+                </div>
+                <button 
+                  onClick={handleMax}
+                  className="text-[10px] font-bold text-brand-primary hover:text-brand-dark px-1.5 py-0.5 bg-brand-light dark:bg-brand-dark/20 rounded border border-brand-primary/20"
+                >
+                  MAX
+                </button>
               </div>
             </div>
-            <div className="relative">
-              <Input
-                type="number"
-                value={amount}
-                onChange={handleOnChange}
-                placeholder="0.00"
-                className="w-full border border-app-border rounded-input px-4 py-6 text-lg font-bold
-                focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary
-                text-app-textPrimary placeholder:text-app-textSecondary bg-app-bg/30"
-              />
-              <div className="absolute right-4 top-1/2 -translate-y-1/2 text-app-textSecondary font-bold">
-                USD
+
+            <div className="relative group">
+              {inputMode === "USD" ? (
+                <Input
+                  type="number"
+                  value={amount}
+                  onChange={handleAmountChange}
+                  placeholder="0.00"
+                  className="w-full border-2 border-app-border dark:border-gray-800 rounded-input px-4 py-7 text-2xl font-bold
+                  focus:outline-none focus:ring-0 focus:border-brand-primary
+                  text-app-textPrimary dark:text-white placeholder:text-app-textSecondary bg-app-bg/30 dark:bg-gray-900/30 transition-all"
+                />
+              ) : (
+                <Input
+                  type="number"
+                  value={quantity}
+                  onChange={handleQuantityChange}
+                  placeholder="0.0000"
+                  className="w-full border-2 border-app-border dark:border-gray-800 rounded-input px-4 py-7 text-2xl font-bold
+                  focus:outline-none focus:ring-0 focus:border-brand-primary
+                  text-app-textPrimary dark:text-white placeholder:text-app-textSecondary bg-app-bg/30 dark:bg-gray-900/30 transition-all"
+                />
+              )}
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 text-app-textSecondary dark:text-gray-500 font-black text-sm tracking-tighter">
+                {inputMode === "USD" ? "USD" : coinDetails?.symbol?.toUpperCase()}
               </div>
             </div>
           </div>
 
-          <div className="bg-app-bg border border-app-border rounded-input p-4 space-y-3">
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-app-textSecondary font-medium">Estimated Quantity</span>
-              <span className="text-app-textPrimary font-bold">
-                {quantity} {coinDetails?.symbol?.toUpperCase()}
+          {/* Details & Calculations */}
+          <div className="bg-app-bg dark:bg-gray-900/50 border border-app-border dark:border-gray-800 rounded-input p-4 space-y-3">
+            <div className="flex justify-between items-center text-xs">
+              <span className="text-app-textSecondary dark:text-gray-500 font-medium">
+                {inputMode === "USD" ? "You Receive" : "Total Cost"}
+              </span>
+              <span className="text-app-textPrimary dark:text-white font-bold">
+                {inputMode === "USD" 
+                  ? `${quantity || '0.00'} ${coinDetails?.symbol?.toUpperCase()}`
+                  : `$${(parseFloat(amount) || 0).toLocaleString()}`
+                }
               </span>
             </div>
-            <div className="flex justify-between items-center text-sm">
-              <span className="text-app-textSecondary font-medium">Market Price</span>
-              <span className="text-app-textPrimary font-bold">
-                ${coinDetails?.market_data.current_price.usd.toLocaleString()}
+            <div className="flex justify-between items-center text-xs border-t border-app-border dark:border-gray-800 pt-2">
+              <span className="text-app-textSecondary dark:text-gray-500 font-medium">Current Market Price</span>
+              <span className="text-app-textPrimary dark:text-white font-bold">
+                ${currentPrice.toLocaleString()}
               </span>
             </div>
           </div>
 
           {isInsufficientBalance && (
-            <p className="text-app-error text-xs font-bold text-center bg-red-50 py-2 rounded-md border border-red-100">
-              ⚠️ Insufficient wallet balance
-            </p>
+            <div className="text-app-error text-[10px] font-bold text-center bg-red-50 dark:bg-red-950/20 py-2 rounded-md border border-red-100 dark:border-red-900/30 flex items-center justify-center gap-2">
+              <Info className="h-3 w-3" />
+              INSUFFICIENT WALLET BALANCE
+            </div>
           )}
           {isInsufficientQuantity && (
-            <p className="text-app-error text-xs font-bold text-center bg-red-50 py-2 rounded-md border border-red-100">
-              ⚠️ Insufficient {coinDetails?.symbol?.toUpperCase()} in portfolio
-            </p>
+            <div className="text-app-error text-[10px] font-bold text-center bg-red-50 dark:bg-red-950/20 py-2 rounded-md border border-red-100 dark:border-red-900/30 flex items-center justify-center gap-2">
+              <Info className="h-3 w-3" />
+              INSUFFICIENT {coinDetails?.symbol?.toUpperCase()} IN PORTFOLIO
+            </div>
           )}
         </div>
 
-        {/* Confirm Section */}
+        {/* Action Button */}
         <div className="pt-2">
           <DialogClose asChild>
             <Button
               onClick={handleOrder}
-              disabled={!amount || amount <= 0 || isInsufficientBalance || isInsufficientQuantity}
-              className={`w-full py-7 rounded-input text-base font-bold transition-all shadow-lg active:scale-[0.98] ${
+              disabled={loading || !quantity || quantity <= 0 || isInsufficientBalance || isInsufficientQuantity}
+              className={`w-full py-7 rounded-input text-base font-black transition-all shadow-lg active:scale-95 ${
                 orderType === "BUY" 
                   ? "bg-brand-primary hover:bg-brand-dark text-white" 
                   : "bg-app-error hover:bg-red-600 text-white"
-              }`}
+              } disabled:opacity-50 disabled:grayscale`}
             >
-              CONFIRM {orderType}
+              {loading ? "PROCESSING..." : `CONFIRM ${orderType} ORDER`}
             </Button>
           </DialogClose>
         </div>

@@ -1,6 +1,5 @@
 package com.prakhar.marketai.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.prakhar.common.exception.BusinessException;
 import com.prakhar.common.exception.ResourceNotFoundException;
@@ -21,6 +20,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
+
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -50,14 +51,13 @@ class MarketAiServiceTest {
   @DisplayName("Get coin details — success from API")
   void getCoinDetailsSuccess() throws Exception {
     when(valueOperations.get(anyString())).thenReturn(null);
-    String jsonResponse = "{\"id\":\"bitcoin\",\"name\":\"Bitcoin\"}";
-    ResponseEntity<String> responseEntity = new ResponseEntity<>(jsonResponse, HttpStatus.OK);
+    Map<String, Object> jsonResponse = Map.of("id", "bitcoin", "name", "Bitcoin");
+    ResponseEntity<Object> responseEntity = new ResponseEntity<>(jsonResponse, HttpStatus.OK);
     
-    when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
+    when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(Object.class)))
       .thenReturn(responseEntity);
-    when(objectMapper.readTree(anyString())).thenReturn(mock(JsonNode.class));
 
-    JsonNode result = marketAiService.getCoinDetails("bitcoin");
+    Object result = marketAiService.getCoinById("bitcoin");
     assertNotNull(result);
     verify(valueOperations).set(eq("coin_details_bitcoin"), eq(jsonResponse), anyLong(), any());
   }
@@ -65,33 +65,33 @@ class MarketAiServiceTest {
   @Test
   @DisplayName("Get coin details — from cache")
   void getCoinDetailsFromCache() throws Exception {
-    when(valueOperations.get("coin_details_bitcoin")).thenReturn("cached-json");
-    when(objectMapper.readTree("cached-json")).thenReturn(mock(JsonNode.class));
+    Object cachedData = Map.of("id", "bitcoin");
+    when(valueOperations.get("coin_details_bitcoin")).thenReturn(cachedData);
 
-    JsonNode result = marketAiService.getCoinDetails("bitcoin");
-    assertNotNull(result);
-    verify(restTemplate, never()).exchange(anyString(), any(), any(), eq(String.class));
+    Object result = marketAiService.getCoinById("bitcoin");
+    assertEquals(cachedData, result);
+    verify(restTemplate, never()).exchange(anyString(), any(), any(), eq(Object.class));
   }
 
   @Test
   @DisplayName("Get coin details — invalid ID 404")
   void getCoinDetailsNotFound() {
     when(valueOperations.get(anyString())).thenReturn(null);
-    when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(String.class)))
+    when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(HttpEntity.class), eq(Object.class)))
       .thenThrow(new HttpClientErrorException(HttpStatus.NOT_FOUND));
 
-    assertThrows(ResourceNotFoundException.class, () -> marketAiService.getCoinDetails("invalid-id"));
+    assertThrows(ResourceNotFoundException.class, () -> marketAiService.getCoinById("invalid-id"));
   }
 
   @Test
   @DisplayName("Search coins — empty query throws BusinessException")
   void searchCoinsEmptyQuery() {
-    assertThrows(BusinessException.class, () -> marketAiService.searchCoin(""));
+    assertThrows(BusinessException.class, () -> marketAiService.searchCoins(""));
   }
 
   @Test
-  @DisplayName("Get AI Response — empty prompt throws BusinessException")
+  @DisplayName("Chat — empty message throws BusinessException")
   void getAiResponseEmptyPrompt() {
-    assertThrows(BusinessException.class, () -> marketAiService.getAiResponse(" "));
+    assertThrows(BusinessException.class, () -> marketAiService.chat(" ", "userId"));
   }
 }

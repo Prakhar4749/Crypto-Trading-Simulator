@@ -1,8 +1,6 @@
-export const existInWatchlist=(items,coin)=>{
-
-    for(let item of items){
-        if(item?.id===coin?.id)return true;
-    }
-    return false;
-
-}
+export const existInWatchlist = (items, coin) => {
+  if (!items || !coin) return false;
+  return items.some(item => 
+    (item?.id === coin?.id) || (typeof item === 'string' && item === coin?.id)
+  );
+};

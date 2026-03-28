@@ -60,8 +60,8 @@ export default function ClaimBonus() {
       {/* Logo Header */}
       <div className="absolute top-8 left-1/2 -translate-x-1/2">
         <img 
-          src="/CoinDesk-logo.png" 
-          alt="CoinDesk" 
+          src={import.meta.env.VITE_LOGO_URL || "/CoinDesk-logo.png"} 
+          alt={import.meta.env.VITE_APP_NAME || "CoinDesk"} 
           className="h-10 w-auto"
         />
       </div>

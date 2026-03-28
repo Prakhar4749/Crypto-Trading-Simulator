@@ -31,13 +31,28 @@ const OrderContext = createContext()
 export const OrderProvider = ({ children }) => {
   const [state, dispatch] = useReducer(orderReducer, initialState)
 
-  const payOrder = async (data) => {
+  const payOrder = async ({ coinId, quantity, orderType }) => {
+    // Validate before sending
+    if (!coinId || !coinId.trim()) {
+      throw new Error("Coin ID is required");
+    }
+    if (!quantity || Number(quantity) <= 0) {
+      throw new Error("Quantity must be greater than 0");
+    }
+    if (!['BUY', 'SELL'].includes(orderType?.toUpperCase())) {
+      throw new Error("Order type must be BUY or SELL");
+    }
+
     dispatch({ type: 'ORDER_REQUEST' })
     try {
-      const response = await axiosInstance.post('/api/orders/pay', data)
+      const response = await axiosInstance.post('/api/orders/pay', {
+        coinId: coinId.toLowerCase().trim(),
+        quantity: Number(quantity),
+        orderType: orderType.toUpperCase()
+      })
       const order = response.data
       dispatch({ type: 'ORDER_SUCCESS', payload: { order } })
-      showToast.success(`${data.orderType} order executed successfully`)
+      showToast.success(`${orderType} order executed successfully`)
       return order
     } catch (error) {
       dispatch({ type: 'ORDER_FAILURE', payload: error.message })

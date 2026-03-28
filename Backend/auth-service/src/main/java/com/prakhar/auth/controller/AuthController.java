@@ -15,6 +15,8 @@ import com.prakhar.common.enums.VerificationType;
 import com.prakhar.common.exception.ResourceNotFoundException;
 import com.prakhar.common.util.LogUtil;
 import com.prakhar.auth.dto.request.UpdateProfileRequest;
+import com.prakhar.auth.dto.request.SendResetOtpRequest;
+import com.prakhar.auth.dto.request.VerifyResetOtpRequest;
 import com.prakhar.auth.utils.RequestContext;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -99,17 +101,20 @@ public class AuthController {
     @PostMapping("/auth/two-factor/otp/{otp}")
     public ResponseEntity<ApiResponse<Map<String, Object>>> verifyTwoFactor(
             @PathVariable String otp, 
-            @RequestParam String id) throws Exception {
-        Map<String, Object> response = authService.verifySigninOtp(otp, id);
+            @RequestBody Map<String, String> request) throws Exception {
+        Map<String, Object> response = authService.verifySigninOtp(otp, request.get("id"));
         return ResponseEntity.ok(ApiResponse.success("2FA verified successfully", response));
     }
 
     @PostMapping("/auth/users/verification/{verificationType}/send-otp")
     public ResponseEntity<ApiResponse<Void>> sendVerificationOtp(
-            @PathVariable VerificationType verificationType,
-            @RequestHeader("X-User-ID") Long userId,
-            @RequestHeader("X-User-Email") String email) {
-        authService.sendVerificationCode(userId, email, verificationType);
+            @PathVariable("verificationType") VerificationType verificationType,
+            @RequestHeader("X-User-ID") Long userId) {
+        
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", String.valueOf(userId)));
+        
+        authService.sendVerificationCode(userId, user.getEmail(), verificationType);
         return ResponseEntity.ok(ApiResponse.success("Verification OTP sent", null));
     }
 
@@ -122,17 +127,14 @@ public class AuthController {
     }
 
     @PostMapping("/auth/users/reset-password/send-otp")
-    public ResponseEntity<ApiResponse<String>> sendForgotPasswordOtp(@RequestBody Map<String, String> request) throws Exception {
-        String sessionId = authService.sendForgotPasswordOtp(request.get("email"));
+    public ResponseEntity<ApiResponse<String>> sendForgotPasswordOtp(@Valid @RequestBody SendResetOtpRequest request) throws Exception {
+        String sessionId = authService.sendForgotPasswordOtp(request.getEmail());
         return ResponseEntity.ok(ApiResponse.success("Password reset OTP sent", sessionId));
     }
 
     @PatchMapping("/auth/users/reset-password/verify-otp")
-    public ResponseEntity<ApiResponse<Void>> resetPassword(
-            @RequestParam String sessionId,
-            @RequestParam String otp,
-            @RequestBody Map<String, String> request) throws Exception {
-        authService.resetPassword(sessionId, otp, request.get("newPassword"));
+    public ResponseEntity<ApiResponse<Void>> resetPassword(@Valid @RequestBody VerifyResetOtpRequest request) throws Exception {
+        authService.resetPassword(request.getEmail(), request.getOtp(), request.getNewPassword());
         return ResponseEntity.ok(ApiResponse.success("Password reset successful", null));
     }
 

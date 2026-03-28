@@ -1,5 +1,8 @@
 package com.prakhar.common.event;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class UserCreatedEvent {
     private Long userId;
     private String email;

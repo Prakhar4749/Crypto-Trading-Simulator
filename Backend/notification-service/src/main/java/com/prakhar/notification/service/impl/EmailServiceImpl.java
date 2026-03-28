@@ -18,6 +18,10 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
+import jakarta.annotation.PostConstruct;
+import org.springframework.mail.MailException;
+import org.springframework.mail.SimpleMailMessage;
+
 @Service
 public class EmailServiceImpl implements EmailService {
 
@@ -36,8 +40,30 @@ public class EmailServiceImpl implements EmailService {
     @Value("${notification.otp-expiry:10}")
     private int otpExpiryMinutes;
 
+    @Value("${admin.email:}")
+    private String adminEmail;
+
     public EmailServiceImpl(JavaMailSender mailSender) {
         this.mailSender = mailSender;
+    }
+
+    @PostConstruct
+    public void testEmailOnStartup() {
+        if (adminEmail == null || adminEmail.isBlank()) {
+            logger.warn("Admin email not configured, skipping SMTP startup test");
+            return;
+        }
+        
+        try {
+            SimpleMailMessage test = new SimpleMailMessage();
+            test.setTo(adminEmail);
+            test.setSubject("[" + appName + "] Notification Service Started");
+            test.setText("Notification service is running and email is working correctly.");
+            mailSender.send(test);
+            logger.info("SMTP test email sent successfully to: {}", maskEmail(adminEmail));
+        } catch (Exception e) {
+            logger.error("SMTP FAILED on startup: {} — Check SMTP_USERNAME and SMTP_PASSWORD", e.getMessage());
+        }
     }
 
     @Override
@@ -49,9 +75,9 @@ public class EmailServiceImpl implements EmailService {
             helper.setSubject(subject);
             helper.setText(body, true);
             mailSender.send(message);
-            logger.info("Email sent to: {}, Subject: {}", maskEmail(to), subject);
-        } catch (MessagingException e) {
-            logger.error("Failed to send email to: {}, Error: {}", maskEmail(to), e.getMessage());
+            logger.info("Email sent successfully to: {}, Subject: {}", maskEmail(to), subject);
+        } catch (MessagingException | MailException e) {
+            logger.error("FAILED to send email to: {}, Error: {}", maskEmail(to), e.getMessage());
         }
     }
 

@@ -1,6 +1,4 @@
-import CustomToast from "@/components/custom/CustomToast";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import {
   InputOTP,
   InputOTPGroup,
@@ -9,47 +7,47 @@ import {
 } from "@/components/ui/input-otp";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ShieldCheck } from "lucide-react";
+import { showToast } from "@/utils/toast";
 
 const TwoFactorAuth = () => {
   const [value, setValue] = useState("");
-  const { verifyOtp, error } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const { verifyOtp } = useAuth();
   const { session } = useParams();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    console.log("[TwoFactorAuth] mounted");
-  }, []);
-
   const handleTwoFactoreAuth = async () => { 
-    console.log("[TwoFactorAuth] submitting OTP", { otp: value, session });
+    if (value.length !== 6) {
+      showToast.error("Please enter a 6-digit code");
+      return;
+    }
+
+    setLoading(true);
     try {
       const data = await verifyOtp({ otp: value, session });
       if (data.jwt) {
-        console.log("[TwoFactorAuth] success, redirecting to dashboard");
         navigate("/");
       }
     } catch (err) {
-      console.log("[TwoFactorAuth] verification failed", err.message);
+      showToast.fromError(err);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="min-h-screen bg-app-bg flex items-center justify-center p-4">
-      <CustomToast show={error} message={error} />
-      
       <div className="bg-white rounded-card shadow-card p-8 w-full max-w-md border border-app-border flex flex-col items-center">
         <div className="w-16 h-16 bg-brand-light rounded-full flex items-center justify-center mb-6">
           <ShieldCheck className="w-8 h-8 text-brand-primary" />
         </div>
         
         <div className="text-center space-y-1 mb-8">
-          {/* TODO: Replace with official CoinDesk logo */}
           <img 
-            src="https://via.placeholder.com/150?text=CoinDesk+Logo" 
-            alt="CoinDesk Logo" 
+            src={import.meta.env.VITE_LOGO_URL || "/CoinDesk-logo.png"} 
+            alt={import.meta.env.VITE_APP_NAME || "CoinDesk"} 
             className="h-8 w-auto mx-auto mb-2 cursor-pointer"
             onClick={() => navigate("/")}
           />

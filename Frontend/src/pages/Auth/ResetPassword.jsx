@@ -10,8 +10,8 @@ import {
 import { useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { useAuth } from "@/contexts/AuthContext";
-import { useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useState } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   InputOTP,
   InputOTPGroup,
@@ -19,31 +19,33 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 import * as yup from "yup";
+import { showToast } from "@/utils/toast";
 
 const formSchema = yup.object({
   password: yup
     .string()
-    .min(8, "Password must be at least 8 characters long")
+    .min(6, "Password must be at least 6 characters long")
     .required("Password is required"),
   confirmPassword: yup
     .string()
     .oneOf([yup.ref('password')], "Passwords & Confirm Password must match")
-    .min(8, "Password must be at least 8 characters long")
+    .min(6, "Password must be at least 6 characters long")
     .required("Confirm password is required"),
   otp: yup
     .string()
-    .min(6, "OTP must be at least 6 characters long")
+    .min(6, "OTP must be 6 characters long")
     .required("OTP is required"),
 });
 
 const ResetPasswordForm = () => {
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { verifyResetPassowrdOTP } = useAuth();
-  const { session } = useParams();
-
-  useEffect(() => {
-    console.log("[ResetPasswordForm] mounted");
-  }, []);
+  const location = useLocation();
+  const { verifyResetPasswordOtp } = useAuth();
+  
+  // Get email from query parameter
+  const queryParams = new URLSearchParams(location.search);
+  const email = queryParams.get("email");
 
   const form = useForm({
     resolver: yupResolver(formSchema),
@@ -54,9 +56,25 @@ const ResetPasswordForm = () => {
     },
   });
 
-  const onSubmit = (data) => {
-    verifyResetPassowrdOTP({ otp: data.otp, password: data.password, session, navigate });
-    console.log("reset password form", data);
+  const onSubmit = async (data) => {
+    if (!email) {
+      showToast.error("Email not found. Please try the forgot password process again.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await verifyResetPasswordOtp({ 
+        email,
+        otp: data.otp, 
+        password: data.password, 
+        navigate 
+      });
+    } catch (error) {
+      showToast.fromError(error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -64,15 +82,9 @@ const ResetPasswordForm = () => {
       <div className="bg-white rounded-card shadow-card p-8 w-full max-w-md border border-app-border">
         <div className="space-y-6">
           <div className="text-center space-y-1">
-            {/* TODO: Replace with official CoinDesk logo */}
-            <img 
-              src="https://via.placeholder.com/150?text=CoinDesk+Logo" 
-              alt="CoinDesk Logo" 
-              className="h-8 w-auto mx-auto mb-2 cursor-pointer"
-              onClick={() => navigate("/")}
-            />
             <h2 className="text-app-textPrimary font-semibold text-xl">Reset Password</h2>
             <p className="text-app-textSecondary text-sm">Enter the code and your new password</p>
+            {email && <p className="text-brand-primary text-xs font-medium">Resetting for: {email}</p>}
           </div>
 
           <Form {...form}>
@@ -84,7 +96,7 @@ const ResetPasswordForm = () => {
                   <FormItem className="flex flex-col items-center">
                     <p className="text-app-textPrimary font-medium text-sm mb-2 self-start">Verification Code</p>
                     <FormControl>
-                      <InputOTP {...field} maxLength={6} className="gap-2">
+                      <InputOTP {...field} maxLength={6} disabled={loading} className="gap-2">
                         <InputOTPGroup>
                           <InputOTPSlot index={0} className="border-app-border" />
                           <InputOTPSlot index={1} className="border-app-border" />
@@ -112,6 +124,7 @@ const ResetPasswordForm = () => {
                       <FormControl>
                         <Input
                           {...field}
+                          disabled={loading}
                           type="password"
                           className="w-full border border-app-border rounded-input px-4 py-2.5 
                           focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary
@@ -132,6 +145,7 @@ const ResetPasswordForm = () => {
                       <FormControl>
                         <Input
                           {...field}
+                          disabled={loading}
                           type="password"
                           className="w-full border border-app-border rounded-input px-4 py-2.5 
                           focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary
@@ -147,16 +161,18 @@ const ResetPasswordForm = () => {
 
               <Button 
                 type="submit" 
+                disabled={loading}
                 className="w-full bg-brand-primary hover:bg-brand-dark text-white 
                 font-semibold py-2.5 rounded-input transition-colors duration-200"
               >
-                Change Password
+                {loading ? "Processing..." : "Change Password"}
               </Button>
             </form>
           </Form>
 
           <div className="flex justify-center pt-2">
             <Button
+              disabled={loading}
               onClick={() => navigate("/signin")}
               variant="ghost"
               className="text-brand-primary hover:text-brand-dark font-medium text-sm"

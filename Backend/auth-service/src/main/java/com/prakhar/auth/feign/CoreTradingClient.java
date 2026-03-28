@@ -17,13 +17,11 @@ public interface CoreTradingClient {
 
     @PostMapping("/internal/wallet/create")
     ApiResponse<WalletDTO> createWalletForUser(
-        @RequestBody CreateWalletRequest request,
-        @RequestHeader("X-Internal-Api-Key") String internalApiKey
+        @RequestBody CreateWalletRequest request
     );
 
     @PostMapping("/internal/wallet/credit-bonus/{userId}")
     ApiResponse<WalletDTO> creditSignupBonus(
-        @PathVariable("userId") Long userId,
-        @RequestHeader("X-Internal-Api-Key") String internalApiKey
+        @PathVariable("userId") Long userId
     );
 }

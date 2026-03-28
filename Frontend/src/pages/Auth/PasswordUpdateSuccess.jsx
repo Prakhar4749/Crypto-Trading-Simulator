@@ -12,10 +12,9 @@ const PasswordUpdateSuccess = () => {
           <CheckCircle2 className="w-10 h-10 text-brand-primary" />
         </div>
 
-        {/* TODO: Replace with official CoinDesk logo */}
         <img 
-          src="https://via.placeholder.com/150?text=CoinDesk+Logo" 
-          alt="CoinDesk Logo" 
+          src={import.meta.env.VITE_LOGO_URL || "/CoinDesk-logo.png"} 
+          alt={import.meta.env.VITE_APP_NAME || "CoinDesk"} 
           className="h-10 w-auto mb-2 cursor-pointer"
           onClick={() => navigate("/")}
         />

@@ -271,7 +271,7 @@ const Home = () => {
             <div className="bg-brand-primary px-6 py-4 flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                <p className="text-white font-bold text-sm">CoinDesk AI</p>
+                <p className="text-white font-bold text-sm">{import.meta.env.VITE_APP_NAME || "CoinDesk"} AI</p>
               </div>
               <Button onClick={handleBotRelease} size="icon" variant="ghost" className="text-white hover:bg-white/10 rounded-full h-8 w-8 p-0">
                 <Cross1Icon className="h-4 w-4" />

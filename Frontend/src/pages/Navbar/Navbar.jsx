@@ -39,6 +39,7 @@ const Navbar = () => {
     { name: "Market", path: "/" },
     { name: "Portfolio", path: "/portfolio" },
     { name: "Watchlist", path: "/watchlist" },
+    { name: "Wallet", path: "/wallet" },
   ];
 
   if (user?.role === "ROLE_ADMIN") {
@@ -54,7 +55,7 @@ const Navbar = () => {
               <Button
                 variant="ghost"
                 size="icon"
-                className="lg:hidden text-app-textSecondary dark:text-gray-400 hover:text-brand-primary"
+                className="text-app-textSecondary dark:text-gray-400 hover:text-brand-primary"
               >
                 <DragHandleHorizontalIcon className="h-6 w-6" />
               </Button>
@@ -66,8 +67,8 @@ const Navbar = () => {
               <SheetHeader className="p-6 border-b border-app-border dark:border-gray-800">
                 <SheetTitle className="text-left">
                   <img 
-                    src="/CoinDesk-logo.png" 
-                    alt="CoinDesk" 
+                    src={import.meta.env.VITE_LOGO_URL || "/CoinDesk-logo.png"} 
+                    alt={import.meta.env.VITE_APP_NAME || "CoinDesk"} 
                     className="h-8 w-auto cursor-pointer"
                     onClick={() => navigate("/")}
                   />
@@ -78,14 +79,14 @@ const Navbar = () => {
           </Sheet>
 
           <img 
-            src="/CoinDesk-logo.png" 
-            alt="CoinDesk" 
+            src={import.meta.env.VITE_LOGO_URL || "/CoinDesk-logo.png"} 
+            alt={import.meta.env.VITE_APP_NAME || "CoinDesk"} 
             className="h-8 w-auto cursor-pointer hidden lg:block"
             onClick={() => navigate("/")}
           />
           <img 
-            src="/CoinDesk-logo.png" 
-            alt="CoinDesk" 
+            src={import.meta.env.VITE_LOGO_URL || "/CoinDesk-logo.png"} 
+            alt={import.meta.env.VITE_APP_NAME || "CoinDesk"} 
             className="h-8 w-auto cursor-pointer lg:hidden"
             onClick={() => navigate("/")}
           />
@@ -109,12 +110,19 @@ const Navbar = () => {
       </div>
 
       <div className="flex items-center gap-4">
-        <div 
-          onClick={() => navigate("/search")}
-          className="hidden md:flex items-center gap-3 bg-app-bg dark:bg-[#0f0f1a] border border-app-border dark:border-gray-800 rounded-pill px-4 py-1.5 text-app-textSecondary dark:text-gray-400 cursor-pointer hover:border-brand-primary transition-all w-64"
-        >
-          <MagnifyingGlassIcon className="h-4 w-4" />
-          <span className="text-sm">Search assets...</span>
+        <div className="hidden md:flex items-center gap-3 bg-app-bg dark:bg-[#0f0f1a] border border-app-border dark:border-gray-800 rounded-pill px-4 py-1.5 focus-within:border-brand-primary transition-all w-64">
+          <MagnifyingGlassIcon className="h-4 w-4 text-app-textSecondary" />
+          <input
+            type="text"
+            placeholder="Search assets..."
+            className="bg-transparent border-none outline-none text-sm w-full text-app-textPrimary placeholder:text-app-textSecondary"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                navigate(`/search`);
+              }
+            }}
+            onClick={() => navigate("/search")}
+          />
         </div>
 
         <Button variant="ghost" size="icon" className="text-app-textSecondary dark:text-gray-400 hover:text-brand-primary">

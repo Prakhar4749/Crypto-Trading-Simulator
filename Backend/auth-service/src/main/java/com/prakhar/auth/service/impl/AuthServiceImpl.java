@@ -41,6 +41,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class AuthServiceImpl implements AuthService {
@@ -116,8 +117,7 @@ public class AuthServiceImpl implements AuthService {
                     savedUser.getId(),
                     savedUser.getEmail(),
                     savedUser.getFullName()
-                ),
-                internalApiKey
+                )
             );
             log.info(LogUtil.info(
                 "auth-service",
@@ -168,7 +168,7 @@ public class AuthServiceImpl implements AuthService {
         String jwt = jwtProvider.generateToken(user.getId(), user.getEmail(), user.getFullName(), user.getRole().name());
 
         if (user.isTwoFactorEnabled()) {
-            TwoFactorOTP twoFactorOTP = twoFactorOtpService.createOtp(user.getId(), user.getEmail(), jwt);
+            TwoFactorOTP twoFactorOTP = twoFactorOtpService.createOtp(user.getId(), user.getEmail(), user.getFullName(), jwt);
             response.put("twoFactorAuthEnabled", true);
             response.put("session", twoFactorOTP.getId());
             response.put("message", "Two factor authentication enabled");
@@ -200,18 +200,65 @@ public class AuthServiceImpl implements AuthService {
     @Override
     @Transactional
     public void sendVerificationCode(Long userId, String email, VerificationType type) {
-        String code = OtpUtils.generateOTP();
-        verificationCodeRepository.deleteByUserId(userId);
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "id=" + userId));
+
+        if (user.isVerified()) {
+            log.info(LogUtil.info(
+                "auth-service",
+                "sendVerificationCode",
+                userId.toString(),
+                "User already verified — skipping"
+            ));
+            return;
+        }
+
+        VerificationCode code = getOrCreateOtp(userId, email, type);
+        kafkaTemplate.send(otpNotificationTopic, new OtpNotificationEvent(userId, email, user.getFullName(), code.getOtp(), type, type.name(), null));
         
-        VerificationCode verificationCode = new VerificationCode();
-        verificationCode.setUserId(userId);
-        verificationCode.setEmail(email);
-        verificationCode.setOtp(code);
-        verificationCode.setVerificationType(type);
-        verificationCode.setExpiryTime(LocalDateTime.now().plusMinutes(10));
+        log.info(LogUtil.info(
+            "auth-service",
+            "sendVerificationCode",
+            userId.toString(),
+            "OTP event published for type=" + type
+        ));
+    }
+
+    private VerificationCode getOrCreateOtp(Long userId, String email, VerificationType type) {
+        Optional<VerificationCode> existing = verificationCodeRepository.findByUserIdAndVerificationType(userId, type);
+
+        if (existing.isPresent()) {
+            VerificationCode code = existing.get();
+            // If OTP has more than 2 minutes left, reuse it
+            if (code.getExpiryTime() != null &&
+                LocalDateTime.now().isBefore(code.getExpiryTime().minusMinutes(2))) {
+                
+                log.info(LogUtil.info(
+                    "auth-service",
+                    "getOrCreateOtp",
+                    userId.toString(),
+                    "Reusing existing valid OTP for type=" + type
+                ));
+                return code;
+            }
+            verificationCodeRepository.delete(code);
+            log.info(LogUtil.info(
+                "auth-service",
+                "getOrCreateOtp",
+                userId.toString(),
+                "Deleted expired/near-expiry OTP, creating new for type=" + type
+            ));
+        }
+
+        String otp = OtpUtils.generateOTP();
+        VerificationCode newCode = new VerificationCode();
+        newCode.setUserId(userId);
+        newCode.setEmail(email);
+        newCode.setOtp(otp);
+        newCode.setVerificationType(type);
+        newCode.setExpiryTime(LocalDateTime.now().plusMinutes(10));
         
-        verificationCodeRepository.save(verificationCode);
-        kafkaTemplate.send(otpNotificationTopic, new OtpNotificationEvent(userId, email, code, type));
+        return verificationCodeRepository.save(newCode);
     }
 
     @Override
@@ -262,31 +309,58 @@ public class AuthServiceImpl implements AuthService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User", email));
 
-        String code = OtpUtils.generateOTP();
-        forgotPasswordTokenRepository.deleteByUserId(user.getId());
+        ForgotPasswordToken token = getOrCreateForgotPasswordToken(user.getId(), email);
         
+        kafkaTemplate.send(otpNotificationTopic, new OtpNotificationEvent(user.getId(), email, user.getFullName(), token.getOtp(), VerificationType.FORGOT_PASSWORD, "FORGOT_PASSWORD", null));
+        return token.getId();
+    }
+
+    private ForgotPasswordToken getOrCreateForgotPasswordToken(Long userId, String email) {
+        Optional<ForgotPasswordToken> existing = forgotPasswordTokenRepository.findByUserId(userId);
+
+        if (existing.isPresent()) {
+            ForgotPasswordToken token = existing.get();
+            // If OTP has more than 2 minutes left, reuse it
+            if (token.getExpiryTime() != null &&
+                LocalDateTime.now().isBefore(token.getExpiryTime().minusMinutes(2))) {
+                
+                log.info(LogUtil.info(
+                    "auth-service",
+                    "getOrCreateForgotPasswordToken",
+                    userId.toString(),
+                    "Reusing existing valid ForgotPassword token"
+                ));
+                return token;
+            }
+            forgotPasswordTokenRepository.deleteByUserId(userId);
+            log.info(LogUtil.info(
+                "auth-service",
+                "getOrCreateForgotPasswordToken",
+                userId.toString(),
+                "Deleted expired/near-expiry ForgotPassword token"
+            ));
+        }
+
+        String code = OtpUtils.generateOTP();
         ForgotPasswordToken token = new ForgotPasswordToken();
         token.setId(java.util.UUID.randomUUID().toString());
-        token.setUserId(user.getId());
+        token.setUserId(userId);
         token.setEmail(email);
         token.setOtp(code);
         token.setVerificationType(VerificationType.FORGOT_PASSWORD);
         token.setExpiryTime(LocalDateTime.now().plusMinutes(10));
 
-        forgotPasswordTokenRepository.save(token);
-        
-        kafkaTemplate.send(otpNotificationTopic, new OtpNotificationEvent(user.getId(), email, code, VerificationType.FORGOT_PASSWORD));
-        return token.getId();
+        return forgotPasswordTokenRepository.save(token);
     }
 
     @Override
     @Transactional
-    public void resetPassword(String sessionId, String otp, String newPassword) {
-        ForgotPasswordToken token = forgotPasswordTokenRepository.findById(sessionId)
-                .orElseThrow(() -> new InvalidOtpException("Password reset token not found or already used"));
+    public void resetPassword(String email, String otp, String newPassword) {
+        ForgotPasswordToken token = forgotPasswordTokenRepository.findByEmailAndOtp(email, otp)
+                .orElseThrow(() -> new InvalidOtpException("Invalid or expired OTP"));
 
-        if (token.getExpiryTime().isBefore(LocalDateTime.now()) || !token.getOtp().equals(otp)) {
-            throw new InvalidOtpException("Invalid or expired OTP");
+        if (token.getExpiryTime().isBefore(LocalDateTime.now())) {
+            throw new InvalidOtpException("OTP has expired");
         }
 
         User user = userRepository.findById(token.getUserId())
@@ -418,7 +492,7 @@ public class AuthServiceImpl implements AuthService {
     }
 
     private WalletDTO creditBonusViaFeign(Long userId) {
-        ApiResponse<WalletDTO> response = coreTradingClient.creditSignupBonus(userId, internalApiKey);
+        ApiResponse<WalletDTO> response = coreTradingClient.creditSignupBonus(userId);
         if (response == null || !response.isSuccess()) {
             throw new ExternalServiceException("core-trading-service", "Bonus credit failed");
         }

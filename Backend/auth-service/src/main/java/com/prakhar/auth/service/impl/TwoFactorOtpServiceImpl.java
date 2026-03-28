@@ -32,8 +32,24 @@ public class TwoFactorOtpServiceImpl implements TwoFactorOtpService {
 
     @Override
     @Transactional
-    public TwoFactorOTP createOtp(Long userId, String email, String jwt) {
-        repository.deleteByUserId(userId);
+    public TwoFactorOTP createOtp(Long userId, String email, String fullName, String jwt) {
+        Optional<TwoFactorOTP> existing = repository.findByUserId(userId);
+
+        if (existing.isPresent()) {
+            TwoFactorOTP otp = existing.get();
+            // If OTP has more than 2 minutes left, reuse it
+            if (otp.getExpiryTime() != null &&
+                LocalDateTime.now().isBefore(otp.getExpiryTime().minusMinutes(2))) {
+                
+                logger.info("Reusing existing valid 2FA OTP for userId: {}", userId);
+                // We send it again via Kafka to be safe
+                kafkaTemplate.send("otp-notification", new OtpNotificationEvent(userId, email, fullName, otp.getOtp(), VerificationType.TWO_FACTOR, "TWO_FACTOR", null));
+                return otp;
+            }
+            repository.deleteByUserId(userId);
+            logger.info("Deleted expired/near-expiry 2FA OTP for userId: {}", userId);
+        }
+
         String code = OtpUtils.generateOTP();
         
         TwoFactorOTP twoFactorOTP = new TwoFactorOTP();
@@ -45,9 +61,9 @@ public class TwoFactorOtpServiceImpl implements TwoFactorOtpService {
         
         TwoFactorOTP savedOtp = repository.save(twoFactorOTP);
         
-        logger.info("Created 2FA OTP for userId: {}", userId);
+        logger.info("Created new 2FA OTP for userId: {}", userId);
         
-        kafkaTemplate.send("otp-notification", new OtpNotificationEvent(userId, email, code, VerificationType.TWO_FACTOR));
+        kafkaTemplate.send("otp-notification", new OtpNotificationEvent(userId, email, fullName, code, VerificationType.TWO_FACTOR, "TWO_FACTOR", null));
         
         return savedOtp;
     }

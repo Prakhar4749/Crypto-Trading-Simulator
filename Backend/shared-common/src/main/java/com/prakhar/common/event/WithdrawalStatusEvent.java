@@ -1,7 +1,10 @@
 package com.prakhar.common.event;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import java.math.BigDecimal;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class WithdrawalStatusEvent {
     private Long withdrawalId;
     private Long userId;

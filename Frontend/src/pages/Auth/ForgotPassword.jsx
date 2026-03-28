@@ -11,21 +11,18 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "@/contexts/AuthContext";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { showToast } from "@/utils/toast";
 
 const formSchema = z.object({
   email: z.string().email("Invalid email address"),
 });
 
 const ForgotPasswordForm = () => {
-  const [verificationType, setVerificationType] = useState("EMAIL");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-  const { sendResetPassowrdOTP } = useAuth();
-
-  useEffect(() => {
-    console.log("[ForgotPasswordForm] mounted");
-  }, []);
+  const { sendResetPasswordOtp } = useAuth();
 
   const form = useForm({
     resolver: zodResolver(formSchema),
@@ -34,14 +31,18 @@ const ForgotPasswordForm = () => {
     },
   });
 
-  const onSubmit = (data) => {
-    data.navigate = navigate;
-    sendResetPassowrdOTP({ 
-      sendTo: data.email, 
-      navigate, 
-      verificationType 
-    });
-    console.log("forgot password form", data);
+  const onSubmit = async (data) => {
+    setLoading(true);
+    try {
+      await sendResetPasswordOtp({ 
+        email: data.email, 
+        navigate 
+      });
+    } catch (error) {
+      showToast.fromError(error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -61,6 +62,7 @@ const ForgotPasswordForm = () => {
                 <FormControl>
                   <Input
                     {...field}
+                    disabled={loading}
                     className="w-full border border-app-border rounded-input px-4 py-2.5 
                     focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-brand-primary
                     text-app-textPrimary placeholder:text-app-textSecondary bg-transparent"
@@ -74,10 +76,11 @@ const ForgotPasswordForm = () => {
 
           <Button 
             type="submit" 
+            disabled={loading}
             className="w-full bg-brand-primary hover:bg-brand-dark text-white 
             font-semibold py-2.5 rounded-input transition-colors duration-200"
           >
-            Send OTP
+            {loading ? "Sending..." : "Send OTP"}
           </Button>
         </form>
       </Form>

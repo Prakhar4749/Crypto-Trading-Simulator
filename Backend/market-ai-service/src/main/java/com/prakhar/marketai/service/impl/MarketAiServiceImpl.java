@@ -1,6 +1,5 @@
 package com.prakhar.marketai.service.impl;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.prakhar.common.exception.BusinessException;
 import com.prakhar.common.exception.ExternalServiceException;
@@ -45,75 +44,96 @@ public class MarketAiServiceImpl implements MarketAiService {
     }
 
     @Override
-    public JsonNode getCoinList(int page) throws Exception {
+    public Object getCoinList(int page, String currency) {
         if (page < 1) {
             throw new BusinessException("Page number must be at least 1");
         }
-        String cacheKey = "coin_list_" + page;
+        String cacheKey = "coin_list_" + page + "_" + currency;
         Object cachedData = redisTemplate.opsForValue().get(cacheKey);
-        if (cachedData != null) return objectMapper.readTree(cachedData.toString());
+        if (cachedData != null) return cachedData;
 
-        String url = coingeckoBaseUrl + "/coins/markets?vs_currency=usd&per_page=10&page=" + page;
-        String response = fetchFromCoinGecko(url, "list");
+        String url = coingeckoBaseUrl + "/coins/markets?vs_currency=" + currency + "&per_page=10&page=" + page;
+        Object response = fetchFromCoinGecko(url, "list", Object.class);
         redisTemplate.opsForValue().set(cacheKey, response, 5, TimeUnit.MINUTES);
-        return objectMapper.readTree(response);
+        return response;
     }
 
     @Override
-    public JsonNode getTop50() throws Exception {
+    public Object getTop50Coins() {
         String cacheKey = "top50";
         Object cachedData = redisTemplate.opsForValue().get(cacheKey);
-        if (cachedData != null) return objectMapper.readTree(cachedData.toString());
+        if (cachedData != null) return cachedData;
 
         String url = coingeckoBaseUrl + "/coins/markets?vs_currency=usd&per_page=50&page=1";
-        String response = fetchFromCoinGecko(url, "top50");
+        Object response = fetchFromCoinGecko(url, "top50", Object.class);
         redisTemplate.opsForValue().set(cacheKey, response, 10, TimeUnit.MINUTES);
-        return objectMapper.readTree(response);
+        return response;
     }
 
     @Override
-    public JsonNode searchCoin(String query) throws Exception {
+    public Object searchCoins(String query) {
         if (query == null || query.isBlank()) {
             throw new BusinessException("Search query cannot be empty");
         }
         String url = coingeckoBaseUrl + "/search?query=" + query;
-        String response = fetchFromCoinGecko(url, "search");
-        return objectMapper.readTree(response);
+        return fetchFromCoinGecko(url, "search", Object.class);
     }
 
     @Override
-    public JsonNode getMarketChart(String coinId, int days) throws Exception {
+    public Object getCoinChart(String coinId, int days, String currency) {
         if (coinId == null || coinId.isBlank()) {
             throw new BusinessException("Coin ID cannot be empty");
         }
-        String cacheKey = "chart_" + coinId + "_" + days;
+        String cacheKey = "chart_" + coinId + "_" + days + "_" + currency;
         Object cachedData = redisTemplate.opsForValue().get(cacheKey);
-        if (cachedData != null) return objectMapper.readTree(cachedData.toString());
+        if (cachedData != null) return cachedData;
 
-        String url = coingeckoBaseUrl + "/coins/" + coinId + "/market_chart?vs_currency=usd&days=" + days;
-        String response = fetchFromCoinGecko(url, coinId);
+        String url = coingeckoBaseUrl + "/coins/" + coinId + "/market_chart?vs_currency=" + currency + "&days=" + days;
+        Object response = fetchFromCoinGecko(url, coinId, Object.class);
         redisTemplate.opsForValue().set(cacheKey, response, 5, TimeUnit.MINUTES);
-        return objectMapper.readTree(response);
+        return response;
     }
 
     @Override
-    public JsonNode getCoinDetails(String coinId) throws Exception {
+    public Object getCoinById(String coinId) {
         if (coinId == null || coinId.isBlank()) {
             throw new BusinessException("Coin ID cannot be empty");
         }
         String cacheKey = "coin_details_" + coinId;
         Object cachedData = redisTemplate.opsForValue().get(cacheKey);
-        if (cachedData != null) return objectMapper.readTree(cachedData.toString());
+        if (cachedData != null) return cachedData;
 
         String url = coingeckoBaseUrl + "/coins/" + coinId;
-        String response = fetchFromCoinGecko(url, coinId);
+        Object response = fetchFromCoinGecko(url, coinId, Object.class);
         redisTemplate.opsForValue().set(cacheKey, response, 10, TimeUnit.MINUTES);
-        return objectMapper.readTree(response);
+        return response;
     }
 
     @Override
-    public String getAiResponse(String prompt) {
-        if (prompt == null || prompt.isBlank()) {
+    public Object getCoinsByIds(java.util.List<String> ids) {
+        if (ids == null || ids.isEmpty()) {
+            return new java.util.ArrayList<>();
+        }
+        String idsParam = String.join(",", ids);
+        String url = coingeckoBaseUrl + "/coins/markets?vs_currency=usd&ids=" + idsParam;
+        return fetchFromCoinGecko(url, "bulk", Object.class);
+    }
+
+    @Override
+    public Object getTrendingCoins() {
+        String cacheKey = "trending";
+        Object cachedData = redisTemplate.opsForValue().get(cacheKey);
+        if (cachedData != null) return cachedData;
+
+        String url = coingeckoBaseUrl + "/search/trending";
+        Object response = fetchFromCoinGecko(url, "trending", Object.class);
+        redisTemplate.opsForValue().set(cacheKey, response, 10, TimeUnit.MINUTES);
+        return response;
+    }
+
+    @Override
+    public String chat(String message, String userId) {
+        if (message == null || message.isBlank()) {
             throw new BusinessException("Chat message cannot be empty");
         }
         String url = geminiApiUrl + (geminiApiUrl.contains("?") ? "&" : "?") + "key=" + geminiApiKey;
@@ -122,7 +142,7 @@ public class MarketAiServiceImpl implements MarketAiService {
         JSONArray contentsArray = new JSONArray();
         JSONObject contentsObject = new JSONObject();
         JSONArray partsArray = new JSONArray();
-        partsArray.put(new JSONObject().put("text", prompt));
+        partsArray.put(new JSONObject().put("text", message));
         contentsObject.put("parts", partsArray);
         contentsArray.put(contentsObject);
         requestBody.put("contents", contentsArray);
@@ -141,12 +161,14 @@ public class MarketAiServiceImpl implements MarketAiService {
         }
     }
 
-    private String fetchFromCoinGecko(String url, String coinId) {
+    private <T> T fetchFromCoinGecko(String url, String coinId, Class<T> responseType) {
         HttpHeaders headers = new HttpHeaders();
-        headers.set("x-cg-demo-api-key", coingeckoApiKey);
+        if (coingeckoApiKey != null && !coingeckoApiKey.isBlank()) {
+            headers.set("x-cg-demo-api-key", coingeckoApiKey);
+        }
         HttpEntity<String> entity = new HttpEntity<>(headers);
         try {
-            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+            ResponseEntity<T> response = restTemplate.exchange(url, HttpMethod.GET, entity, responseType);
             return response.getBody();
         } catch (HttpClientErrorException e) {
             if (e.getStatusCode() == HttpStatus.NOT_FOUND) {

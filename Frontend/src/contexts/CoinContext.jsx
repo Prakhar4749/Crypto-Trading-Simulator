@@ -41,10 +41,12 @@ const CoinContext = createContext()
 export const CoinProvider = ({ children }) => {
   const [state, dispatch] = useReducer(coinReducer, initialState)
 
-  const getCoinList = async (page) => {
+  const getCoinList = async (page = 1, currency = 'usd') => {
     dispatch({ type: 'COIN_REQUEST' })
     try {
-      const response = await axiosInstance.get(`/api/coins?page=${page}`)
+      const response = await axiosInstance.get(`/api/coins`, {
+        params: { page, currency }
+      })
       dispatch({ type: 'COIN_SUCCESS', payload: { coinList: response.data } })
       return response.data
     } catch (error) {
@@ -56,7 +58,7 @@ export const CoinProvider = ({ children }) => {
   const getTop50Coins = async () => {
     dispatch({ type: 'COIN_REQUEST' })
     try {
-      const response = await axiosInstance.get(`/api/coins/top50`)
+      const response = await axiosInstance.get(`/api/market/top50`)
       dispatch({ type: 'COIN_SUCCESS', payload: { top50: response.data } })
       return response.data
     } catch (error) {
@@ -68,8 +70,9 @@ export const CoinProvider = ({ children }) => {
   const getTrendingCoins = async () => {
     dispatch({ type: 'COIN_REQUEST' })
     try {
-      const response = await axiosInstance.get(`/api/coins/trading`)
-      dispatch({ type: 'COIN_SUCCESS', payload: { top50: response.data } })
+      const response = await axiosInstance.get(`/api/market/trending`)
+      // CoinGecko trending response has a specific structure, but we'll store it
+      dispatch({ type: 'COIN_SUCCESS', payload: { trending: response.data } })
       return response.data
     } catch (error) {
       dispatch({ type: 'COIN_FAILURE', payload: error.message })
@@ -90,10 +93,14 @@ export const CoinProvider = ({ children }) => {
   }
 
   const searchCoins = async (query) => {
+    if (!query) return;
     dispatch({ type: 'COIN_REQUEST' })
     try {
-      const response = await axiosInstance.get(`/api/coins/search?q=${query}`)
-      dispatch({ type: 'COIN_SUCCESS', payload: { searchCoinList: response.data.coins } })
+      const response = await axiosInstance.get(`/api/market/search`, {
+        params: { query }
+      })
+      // CoinGecko search returns { coins: [...], exchanges: [...], ... }
+      dispatch({ type: 'COIN_SUCCESS', payload: { searchCoinList: response.data.coins || [] } })
       return response.data
     } catch (error) {
       dispatch({ type: 'COIN_FAILURE', payload: error.message })
@@ -125,6 +132,15 @@ export const CoinProvider = ({ children }) => {
     }
   }
 
+  const getCoinChart = async (coinId, days = 7) => {
+    const response = await axiosInstance.get(
+      `/api/coins/${coinId}/chart`,
+      { params: { days } }
+    );
+    return response.data;
+    // Returns { prices: [[timestamp, price], ...] }
+  };
+
   const fetchMarketData = async (coinId) => {
     try {
       const response = await axiosInstance.get(`/api/coins/${coinId}`)
@@ -145,6 +161,7 @@ export const CoinProvider = ({ children }) => {
       searchCoins, 
       getCoinById, 
       getCoinMarketChart, 
+      getCoinChart,
       fetchMarketData 
     }}>
       {children}

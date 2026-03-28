@@ -91,8 +91,8 @@ const SideBar = ({ isSheet }) => {
       {!isSheet && (
         <div className="mb-8 px-2">
           <img 
-            src="/CoinDesk-logo.png" 
-            alt="CoinDesk" 
+            src={import.meta.env.VITE_LOGO_URL || "/CoinDesk-logo.png"} 
+            alt={import.meta.env.VITE_APP_NAME || "CoinDesk"} 
             className="h-8 w-auto cursor-pointer"
             onClick={() => navigate("/")}
           />

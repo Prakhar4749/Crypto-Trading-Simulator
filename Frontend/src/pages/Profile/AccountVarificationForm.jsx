@@ -1,15 +1,7 @@
 /* eslint-disable no-unused-vars */
 /* eslint-disable react/prop-types */
 import { useAuth } from "@/contexts/AuthContext";
-import { useEffect, useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogClose,
-} from "@/components/ui/dialog";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   InputOTP,
@@ -17,78 +9,53 @@ import {
   InputOTPSeparator,
   InputOTPSlot,
 } from "@/components/ui/input-otp";
-import { Mail, ShieldCheck, Send, BadgeCheck, ArrowLeft } from "lucide-react";
+import { Mail, Send, BadgeCheck, ArrowLeft } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useToast } from "@/components/ui/use-toast";
+import { showToast } from "@/utils/toast";
 
 const AccountVarificationForm = () => {
   const [value, setValue] = useState("");
-  const { user, sendVerificationOtp, verifyOtp, enableTwoStepAuthentication, jwt } = useAuth();
+  const [loading, setLoading] = useState(false);
+  const { user, sendVerificationOtp, verifyOtp, enableTwoStepAuthentication } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const { toast } = useToast();
 
   const verificationType = location.state?.type || "ID_VERIFICATION";
 
-  useEffect(() => {
-    console.log("[AccountVarificationForm] component mounted", { 
-      from: location.state?.from,
-      verificationType 
-    });
-  }, [user]);
-
-  const handleSendOtp = (type) => {
-    console.log("[AccountVarificationForm] sending OTP", { type });
-    sendVerificationOtp({
-      verificationType: type,
-      jwt: jwt || localStorage.getItem("jwt"),
-    }).then(() => {
-      toast({
-        title: "OTP Sent",
-        description: "A 6-digit verification code has been sent to your email.",
-      });
-    }).catch(err => {
-      toast({
-        title: "Error Sending OTP",
-        description: err.message || "Failed to send OTP. Please try again.",
-        variant: "destructive",
-      });
-    });
+  const handleSendOtp = async (type) => {
+    setLoading(true);
+    try {
+      await sendVerificationOtp(type);
+    } catch (err) {
+      showToast.fromError(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleVerifyOtp = async () => {
-    console.log("[AccountVarificationForm] verifyOtp called", { otp: value, verificationType });
+    if (value.length !== 6) {
+      showToast.error("Please enter a 6-digit code");
+      return;
+    }
+
+    setLoading(true);
     try {
       if (verificationType === "2FA_SETUP") {
-        await enableTwoStepAuthentication({
-          otp: value,
-          jwt: jwt || localStorage.getItem("jwt")
-        });
+        await enableTwoStepAuthentication();
       } else {
-        await verifyOtp({ 
-          otp: value,
-          jwt: jwt || localStorage.getItem("jwt")
-        });
+        await verifyOtp({ otp: value });
       }
       
-      console.log("[AccountVarificationForm] verification success");
-
-      toast({
-        title: verificationType === "2FA_SETUP" ? "2FA Enabled Successfully" : "Email Verified Successfully",
-        description: verificationType === "2FA_SETUP" ? "Your account is now secured with 2FA." : "Your identity has been verified.",
-      });
+      showToast.success(verificationType === "2FA_SETUP" ? "2FA Enabled Successfully" : "Email Verified Successfully");
 
       const destination = location.state?.from || "/profile";
-      console.log("[AccountVarificationForm] navigating to", { destination });
       navigate(destination, { replace: true });
 
     } catch (error) {
-      console.log("[AccountVarificationForm] verification failed", error.message);
-      toast({
-        title: "Verification Failed",
-        description: error.message || "Invalid OTP. Please try again.",
-        variant: "destructive",
-      });
+      showToast.fromError(error);
+    } finally {
+      setLoading(false);
     }
   };
 

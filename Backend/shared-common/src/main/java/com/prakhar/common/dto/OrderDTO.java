@@ -13,6 +13,7 @@ public class OrderDTO {
     private double quantity;
     private double buyPrice;
     private double sellPrice;
+    private Object coin;
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -34,4 +35,6 @@ public class OrderDTO {
     public void setBuyPrice(double buyPrice) { this.buyPrice = buyPrice; }
     public double getSellPrice() { return sellPrice; }
     public void setSellPrice(double sellPrice) { this.sellPrice = sellPrice; }
+    public Object getCoin() { return coin; }
+    public void setCoin(Object coin) { this.coin = coin; }
 }

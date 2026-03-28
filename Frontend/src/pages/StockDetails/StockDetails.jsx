@@ -19,6 +19,7 @@ import { useEffect } from "react";
 import { Avatar, AvatarImage } from "@/components/ui/avatar";
 import { existInWatchlist } from "@/Util/existInWatchlist";
 import SpinnerBackdrop from "@/components/custom/SpinnerBackdrop";
+import { Star } from "lucide-react";
 import { useCoins } from "@/contexts/CoinContext";
 import { useWatchlist } from "@/contexts/WatchlistContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -33,17 +34,13 @@ const StockDetails = () => {
 
   useEffect(() => {
     console.log("[StockDetails] mounted", { id });
-    const currentJwt = jwt || localStorage.getItem("jwt");
-    fetchCoinDetails({
-      coinId: id,
-      jwt: currentJwt,
-    });
-    getUserWatchlist(currentJwt);
-    getUserWallet(currentJwt);
+    fetchCoinDetails({ coinId: id });
+    getUserWatchlist();
+    getUserWallet();
   }, [id]);
 
   const handleAddToWatchlist = () => {
-    addToWatchlist(jwt || localStorage.getItem("jwt"), coinDetails?.id);
+    addToWatchlist(id);
   };
 
   const isInWatchlist = existInWatchlist(items, coinDetails);
@@ -88,21 +85,21 @@ const StockDetails = () => {
             <div className="flex items-center gap-3 w-full md:w-auto">
               <Button
                 onClick={handleAddToWatchlist}
-                variant="outline"
-                className={`flex-1 md:flex-none rounded-input px-6 h-11 font-medium transition-all ${
+                variant={isInWatchlist ? "default" : "outline"}
+                className={`flex-1 md:flex-none rounded-input px-6 h-11 font-medium transition-all shadow-sm active:scale-95 ${
                   isInWatchlist 
-                    ? "bg-brand-light text-brand-primary border-brand-primary hover:bg-brand-light/80" 
-                    : "bg-white text-app-textSecondary border-app-border hover:bg-app-bg"
+                    ? "bg-brand-primary text-white border-brand-primary hover:bg-brand-dark" 
+                    : "bg-white dark:bg-transparent text-app-textSecondary dark:text-gray-400 border-app-border dark:border-gray-700 hover:bg-app-bg dark:hover:bg-gray-900"
                 }`}
               >
                 {isInWatchlist ? (
                   <>
-                    <BookmarkFilledIcon className="h-5 w-5 mr-2" />
+                    <Star className="h-4 w-4 mr-2 fill-white" />
                     In Watchlist
                   </>
                 ) : (
                   <>
-                    <BookmarkIcon className="h-5 w-5 mr-2" />
+                    <Star className="h-4 w-4 mr-2" />
                     Add to Watchlist
                   </>
                 )}

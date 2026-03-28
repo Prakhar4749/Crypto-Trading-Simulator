@@ -1,8 +1,11 @@
 package com.prakhar.common.event;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class TradeExecutedEvent {
     private Long userId;
     private String email;

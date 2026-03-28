@@ -187,10 +187,10 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  const sendVerificationOtp = async (data) => {
+  const sendVerificationOtp = async (type) => {
     dispatch({ type: 'AUTH_REQUEST' })
     try {
-      const response = await axiosInstance.post(`/auth/users/verification/${data.verificationType}/send-otp`)
+      const response = await axiosInstance.post(`/auth/users/verification/${type}/send-otp`)
       dispatch({ type: 'AUTH_SUCCESS', payload: {} })
       showToast.success("OTP sent successfully")
       return response.data
@@ -200,18 +200,19 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  const verifyOtp = async (otpData) => {
+  const verifyOtp = async ({ otp, session }) => {
     dispatch({ type: 'AUTH_REQUEST' })
     try {
       let response
-      if (otpData.session) {
+      if (session) {
+        // 2FA login verification
         response = await axiosInstance.post(
-          `/auth/two-factor/otp/${otpData.otp}`,
-          {},
-          { params: { id: otpData.session } }
+          `/auth/two-factor/otp/${otp}`,
+          { id: session }
         )
       } else {
-        response = await axiosInstance.patch(`/auth/users/verify-email/verify-otp/${otpData.otp}`)
+        // Email verification for logged-in user
+        response = await axiosInstance.patch(`/auth/users/verify-email/verify-otp/${otp}`)
       }
       
       const data = response.data
@@ -244,17 +245,16 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  const sendResetPassowrdOTP = async (data) => {
+  const sendResetPasswordOtp = async ({ email, navigate }) => {
     dispatch({ type: 'AUTH_REQUEST' })
     try {
       const response = await axiosInstance.post(`/auth/users/reset-password/send-otp`, {
-        email: data.sendTo,
-        verificationType: data.verificationType || "EMAIL"
+        email
       })
       dispatch({ type: 'AUTH_SUCCESS', payload: {} })
       showToast.success("Password reset OTP sent")
-      if (data.navigate) {
-        data.navigate(`/reset-password/${response.data.session}`)
+      if (navigate) {
+        navigate(`/reset-password?email=${encodeURIComponent(email)}`)
       }
       return response.data
     } catch (err) {
@@ -263,17 +263,18 @@ export const AuthProvider = ({ children }) => {
     }
   }
 
-  const verifyResetPassowrdOTP = async (data) => {
+  const verifyResetPasswordOtp = async ({ email, otp, password, navigate }) => {
     dispatch({ type: 'AUTH_REQUEST' })
     try {
       const response = await axiosInstance.patch(`/auth/users/reset-password/verify-otp`, {
-        otp: data.otp,
-        newPassword: data.password
+        email,
+        otp,
+        newPassword: password
       })
       dispatch({ type: 'AUTH_SUCCESS', payload: {} })
       showToast.success("Password updated successfully!")
-      if (data.navigate) {
-        data.navigate("/password-update-successfully")
+      if (navigate) {
+        navigate("/password-update-successfully")
       }
       return response.data
     } catch (err) {
@@ -296,8 +297,8 @@ export const AuthProvider = ({ children }) => {
       sendVerificationOtp, 
       verifyOtp, 
       enableTwoStepAuthentication, 
-      sendResetPassowrdOTP, 
-      verifyResetPassowrdOTP 
+      sendResetPasswordOtp, 
+      verifyResetPasswordOtp 
     }}>
       {children}
     </AuthContext.Provider>

@@ -103,8 +103,7 @@ public class GoogleAuthServiceImpl implements GoogleAuthService {
                         user.getId(),
                         user.getEmail(),
                         user.getFullName()
-                    ),
-                    internalApiKey
+                    )
                 );
                 logger.info(LogUtil.info(
                     "auth-service",

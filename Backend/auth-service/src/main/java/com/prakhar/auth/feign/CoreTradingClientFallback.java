@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component;
 public class CoreTradingClientFallback implements CoreTradingClient {
     
     @Override
-    public ApiResponse<WalletDTO> createWalletForUser(CreateWalletRequest request, String internalApiKey) {
+    public ApiResponse<WalletDTO> createWalletForUser(CreateWalletRequest request) {
         throw new ExternalServiceException(
             "core-trading-service",
             "Wallet service is currently unavailable. Please try signing up again."
@@ -18,7 +18,7 @@ public class CoreTradingClientFallback implements CoreTradingClient {
     }
 
     @Override
-    public ApiResponse<WalletDTO> creditSignupBonus(Long userId, String internalApiKey) {
+    public ApiResponse<WalletDTO> creditSignupBonus(Long userId) {
         throw new ExternalServiceException(
             "core-trading-service",
             "Could not credit bonus. Please try again."

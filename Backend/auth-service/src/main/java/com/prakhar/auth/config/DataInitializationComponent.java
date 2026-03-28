@@ -5,10 +5,12 @@ import com.prakhar.auth.entity.User;
 import com.prakhar.auth.enums.KycStatus;
 import com.prakhar.auth.enums.UserRole;
 import com.prakhar.auth.repository.UserRepository;
+import com.prakhar.common.util.LogUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -20,6 +22,7 @@ public class DataInitializationComponent implements CommandLineRunner {
     private static final Logger logger = LoggerFactory.getLogger(DataInitializationComponent.class);
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JdbcTemplate jdbcTemplate;
 
     @Value("${admin.email}")
     private String adminEmail;
@@ -30,14 +33,37 @@ public class DataInitializationComponent implements CommandLineRunner {
     @Value("${admin.fullName:Admin}")
     private String adminFullName;
 
-    public DataInitializationComponent(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public DataInitializationComponent(UserRepository userRepository, PasswordEncoder passwordEncoder, JdbcTemplate jdbcTemplate) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.jdbcTemplate = jdbcTemplate;
     }
 
     @Override
     public void run(String... args) {
+        fixDatabaseConstraints();
         initializeAdminUser();
+    }
+
+    private void fixDatabaseConstraints() {
+        try {
+            jdbcTemplate.execute(
+                "ALTER TABLE verification_codes " +
+                "DROP CONSTRAINT IF EXISTS " +
+                "verification_codes_type_check"
+            );
+            logger.info(LogUtil.info(
+                "auth-service", "DB-Migration",
+                null,
+                "Dropped verification_codes_type_check"
+            ));
+        } catch (Exception e) {
+            logger.warn(LogUtil.warn(
+                "auth-service", "DB-Migration",
+                null,
+                "Could not drop constraint: " + e.getMessage()
+            ));
+        }
     }
 
     private void initializeAdminUser() {

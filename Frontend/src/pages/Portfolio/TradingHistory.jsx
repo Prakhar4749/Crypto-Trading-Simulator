@@ -13,8 +13,7 @@ const TradingHistory = () => {
   const { jwt } = useAuth();
 
   useEffect(() => {
-    const currentJwt = jwt || localStorage.getItem("jwt");
-    getAllOrdersOfUser(currentJwt);
+    getAllOrdersOfUser();
   }, []);
 
   const filteredOrders = orders?.filter(order => 
@@ -59,11 +58,11 @@ const TradingHistory = () => {
                 </div>
                 <div className="flex items-center gap-3">
                   <Avatar className="h-10 w-10 ring-1 ring-app-border">
-                    <AvatarImage src={item.orderItem.coin.image} alt={item.orderItem.coin.symbol} />
+                    <AvatarImage src={item.coin?.image} alt={item.coin?.symbol} />
                   </Avatar>
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-2">
-                      <span className="text-app-textPrimary font-semibold">{item.orderItem.coin.name}</span>
+                      <span className="text-app-textPrimary font-semibold">{item.coin?.name || item.coinId}</span>
                       <span className={`px-2 py-0.5 rounded-pill text-[10px] font-bold uppercase ${
                         item.orderType === "BUY" ? "bg-brand-light text-brand-primary" : "bg-red-50 text-app-error"
                       }`}>
@@ -79,15 +78,15 @@ const TradingHistory = () => {
 
               <div className="flex items-center gap-8">
                 <div className="text-right hidden sm:block">
-                  <p className="text-app-textSecondary text-[10px] font-bold uppercase tracking-wider">Price</p>
+                  <p className="text-app-textSecondary text-[10px] font-bold uppercase tracking-wider">Asset Price</p>
                   <p className="text-app-textPrimary font-semibold text-sm">
-                    ${item.orderItem.buyPrice.toLocaleString()}
+                    ${(item.orderType === 'BUY' ? item.buyPrice : item.sellPrice)?.toLocaleString()}
                   </p>
                 </div>
                 <div className="text-right">
-                  <p className="text-app-textSecondary text-[10px] font-bold uppercase tracking-wider">Amount</p>
+                  <p className="text-app-textSecondary text-[10px] font-bold uppercase tracking-wider">Total Amount</p>
                   <p className="text-app-textPrimary font-bold text-sm">
-                    ${item.price.toLocaleString()}
+                    ${item.price?.toLocaleString()}
                   </p>
                   {item.orderType === "SELL" && (
                     <p className={`text-[10px] font-bold ${calculateProfit(item) >= 0 ? "text-brand-primary" : "text-app-error"}`}>

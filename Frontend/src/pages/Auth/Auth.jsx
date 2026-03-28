@@ -6,12 +6,11 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import ForgotPasswordForm from "./ForgotPassword";
 import { useAuth } from "../../contexts/AuthContext";
-import CustomToast from "@/components/custom/CustomToast";
 
 const Auth = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, error } = useAuth();
+  const { user } = useAuth();
 
   useEffect(() => {
     console.log("[Auth] mounted");
@@ -23,13 +22,10 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen bg-app-bg flex items-center justify-center p-4">
-      <CustomToast show={error} message={error} />
-      
       <div className="bg-white rounded-card shadow-card p-8 w-full max-w-md border border-app-border flex flex-col items-center">
-        {/* TODO: Replace with official CoinDesk logo */}
         <img 
-          src="https://via.placeholder.com/150?text=CoinDesk+Logo" 
-          alt="CoinDesk Logo" 
+          src={import.meta.env.VITE_LOGO_URL || "/CoinDesk-logo.png"} 
+          alt={import.meta.env.VITE_APP_NAME || "CoinDesk"} 
           className="h-10 w-auto cursor-pointer mb-2"
           onClick={() => navigate("/")}
         />

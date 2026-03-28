@@ -38,20 +38,17 @@ public class JwtValidationFilter implements GlobalFilter, Ordered {
             "/auth/signup",
             "/auth/signin",
             "/auth/google",
+            "/auth/claim-bonus",
             "/auth/users/reset-password/send-otp",
             "/auth/users/reset-password/verify-otp",
-            "/auth/users/verification/EMAIL/send-otp",
-            "/auth/users/verification/MOBILE/send-otp",
             "/auth/two-factor/otp",
-            "/auth/claim-bonus",
             "/actuator/health",
             "/actuator/info"
     );
 
     private static final List<String> PUBLIC_PREFIXES = List.of(
-            "/auth/users/reset-password",
-            "/auth/users/verification",
-            "/auth/two-factor/otp"
+            "/auth/two-factor/otp/",
+            "/auth/users/reset-password/"
     );
 
     @Override
@@ -79,8 +76,8 @@ public class JwtValidationFilter implements GlobalFilter, Ordered {
 
         // 4. Handle Public Paths
         if (isPublic) {
-            log.debug("[Gateway] Forwarding public request to: {} | Path: {} | Internal-Key present: {}",
-                    request.getURI(), path, internalApiKey != null && !internalApiKey.isBlank());
+            log.debug("[Gateway] Forwarding public request to: {} | Path: {}",
+                    request.getURI(), path);
 
             ServerHttpRequest publicRequest = request.mutate()
                     .header("X-Internal-Api-Key", internalApiKey)

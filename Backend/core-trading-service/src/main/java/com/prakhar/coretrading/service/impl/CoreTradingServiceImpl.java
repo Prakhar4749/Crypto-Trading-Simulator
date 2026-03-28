@@ -133,7 +133,8 @@ public class CoreTradingServiceImpl implements CoreTradingService {
 
         JsonNode coinDetails;
         try {
-            coinDetails = marketClient.getCoinDetails(coinId);
+            ApiResponse<JsonNode> response = marketClient.getCoinDetails(coinId);
+            coinDetails = response.getData();
         } catch (Exception e) {
             throw new ExternalServiceException("market-ai-service", "Could not fetch coin details for " + coinId);
         }
