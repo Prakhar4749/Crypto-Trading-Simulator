@@ -23,6 +23,7 @@ import { useAuth } from "./contexts/AuthContext";
 import { Toaster } from "@/components/ui/toaster";
 import AccountVarificationForm from "./pages/Profile/AccountVarificationForm";
 import AdminRoute from "./components/guards/AdminRoute";
+import ClaimBonus from "./pages/ClaimBonus/ClaimBonus";
 
 
 const routes = [
@@ -38,7 +39,8 @@ const routes = [
   { path: "/profile", role: "ROLE_USER" },
   { path: "/profile/verify", role: "ROLE_USER" },
   { path: "/search", role: "ROLE_USER" },
-  { path: "/admin/withdrawal", role: "ROLE_ADMIN" }
+  { path: "/admin/withdrawal", role: "ROLE_ADMIN" },
+  { path: "/claim-bonus", role: "ROLE_USER" }
 ];
 
 function App() {
@@ -80,6 +82,7 @@ function App() {
               } 
               path="/admin/withdrawal" 
             />
+            <Route element={<ClaimBonus />} path="/claim-bonus" />
             <Route element={<Notfound />} path="*" />
             
           </Routes>
@@ -94,6 +97,7 @@ function App() {
             <Route element={<ResetPasswordForm />} path="/reset-password/:session" />
             <Route element={<PasswordUpdateSuccess />} path="/password-update-successfully" />
             <Route element={<TwoFactorAuth />} path="/two-factor-auth/:session" />
+            <Route element={<ClaimBonus />} path="/claim-bonus" />
             <Route element={<Notfound />} path="*" />
           </Routes>
         </>
