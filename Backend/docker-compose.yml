@@ -17,8 +17,8 @@ services:
   # ── Service Registry (Eureka) ─────────────────────────────────────────────
   service-registry:
     build:
-      context: ./service-registry
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: service-registry/Dockerfile
     container_name: coindesk-service-registry
     ports:
       - "${REGISTRY_PORT:-8761}:8761"        # host:container
@@ -45,8 +45,8 @@ services:
   # ── API Gateway ───────────────────────────────────────────────────────────
   api-gateway:
     build:
-      context: ./api-gateway
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: api-gateway/Dockerfile
     container_name: coindesk-api-gateway
     ports:
       - "${GATEWAY_PORT:-8081}:8081"
@@ -77,8 +77,8 @@ services:
   # ── Auth Service ──────────────────────────────────────────────────────────
   auth-service:
     build:
-      context: ./auth-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: auth-service/Dockerfile
     container_name: coindesk-auth-service
     env_file:
       - .env
@@ -107,8 +107,8 @@ services:
   # ── Core Trading Service ──────────────────────────────────────────────────
   core-trading-service:
     build:
-      context: ./core-trading-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: core-trading-service/Dockerfile
     container_name: coindesk-core-trading
     env_file:
       - .env
@@ -137,8 +137,8 @@ services:
   # ── Market AI Service ─────────────────────────────────────────────────────
   market-ai-service:
     build:
-      context: ./market-ai-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: market-ai-service/Dockerfile
     container_name: coindesk-market-ai
     env_file:
       - .env
@@ -167,8 +167,8 @@ services:
   # ── Notification Service ──────────────────────────────────────────────────
   notification-service:
     build:
-      context: ./notification-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: notification-service/Dockerfile
     container_name: coindesk-notification
     env_file:
       - .env
