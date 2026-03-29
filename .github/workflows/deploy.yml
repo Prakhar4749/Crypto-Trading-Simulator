@@ -5,7 +5,8 @@ on:
     branches:
       - main
     paths:
-      - 'Backend/**'          # only trigger if Backend code changed
+      - 'Backend/**'
+  workflow_dispatch: # only trigger if Backend code changed
 
 jobs:
   deploy:
