@@ -6,7 +6,6 @@ on:
       - main
     paths:
       - 'Backend/**'          # only trigger if Backend code changed
-      # Remove the paths filter if you want every push to deploy
 
 jobs:
   deploy:
@@ -21,8 +20,8 @@ jobs:
           username: ${{ secrets.VM_USER }}
           key: ${{ secrets.VM_SSH_KEY }}
           port: 22
-          timeout: 600s          # 10 min — docker builds take time
-          command_timeout: 600s
+          timeout: 30m             # <--- UPDATED: Increased to 30 minutes
+          command_timeout: 30m     # <--- UPDATED: Increased to 30 minutes
           script: |
             set -e
 
