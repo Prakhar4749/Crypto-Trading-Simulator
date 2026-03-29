@@ -1,0 +1,199 @@
+# =============================================================================
+#  CoinDesk — Docker Compose
+#  Location: Backend/docker-compose.yml
+#
+#  Host-exposed:
+#    ${REGISTRY_PORT} → service-registry  (Eureka dashboard)
+#    ${GATEWAY_PORT}  → api-gateway       (frontend entry point)
+#
+#  Internal only (Docker coindesk-net):
+#    auth-service, core-trading-service, market-ai-service, notification-service
+#
+#  Log rotation: json-file, 10MB × 5 files per service
+# =============================================================================
+
+services:
+
+  # ── Service Registry (Eureka) ─────────────────────────────────────────────
+  service-registry:
+    build:
+      context: ./service-registry
+      dockerfile: Dockerfile
+    container_name: coindesk-service-registry
+    ports:
+      - "${REGISTRY_PORT:-8761}:8761"        # host:container
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: 8761
+    networks:
+      - coindesk-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8761/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    restart: unless-stopped
+
+  # ── API Gateway ───────────────────────────────────────────────────────────
+  api-gateway:
+    build:
+      context: ./api-gateway
+      dockerfile: Dockerfile
+    container_name: coindesk-api-gateway
+    ports:
+      - "${GATEWAY_PORT:-8081}:8081"
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: 8081
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry:8761/eureka/
+    depends_on:
+      service-registry:
+        condition: service_healthy
+    networks:
+      - coindesk-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 50s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    restart: unless-stopped
+
+  # ── Auth Service ──────────────────────────────────────────────────────────
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    container_name: coindesk-auth-service
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: 5454
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry:8761/eureka/
+    depends_on:
+      service-registry:
+        condition: service_healthy
+    networks:
+      - coindesk-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5454/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 50s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    restart: unless-stopped
+
+  # ── Core Trading Service ──────────────────────────────────────────────────
+  core-trading-service:
+    build:
+      context: ./core-trading-service
+      dockerfile: Dockerfile
+    container_name: coindesk-core-trading
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: 5456
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry:8761/eureka/
+    depends_on:
+      service-registry:
+        condition: service_healthy
+    networks:
+      - coindesk-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5456/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 50s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    restart: unless-stopped
+
+  # ── Market AI Service ─────────────────────────────────────────────────────
+  market-ai-service:
+    build:
+      context: ./market-ai-service
+      dockerfile: Dockerfile
+    container_name: coindesk-market-ai
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: 5455
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry:8761/eureka/
+    depends_on:
+      service-registry:
+        condition: service_healthy
+    networks:
+      - coindesk-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5455/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 50s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    restart: unless-stopped
+
+  # ── Notification Service ──────────────────────────────────────────────────
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    container_name: coindesk-notification
+    env_file:
+      - .env
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: 5460
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: http://service-registry:8761/eureka/
+    depends_on:
+      service-registry:
+        condition: service_healthy
+    networks:
+      - coindesk-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5460/actuator/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 50s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+    restart: unless-stopped
+
+networks:
+  coindesk-net:
+    driver: bridge
