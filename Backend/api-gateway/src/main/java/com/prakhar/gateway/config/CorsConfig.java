@@ -1,5 +1,6 @@
 package com.prakhar.gateway.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
@@ -11,16 +12,18 @@ import java.util.List;
 
 @Configuration
 public class CorsConfig {
-
+    @Value("${ALLOWED_ORIGINS:http://localhost:5173}")
+    private String allowedOriginsRaw;
     @Bean
     public CorsWebFilter corsWebFilter() {
         CorsConfiguration corsConfig = new CorsConfiguration();
-        
-        // Allowed origins — frontend URL
-        corsConfig.setAllowedOrigins(List.of(
-            "http://localhost:5173",
-            "http://localhost:3000"
-        ));
+
+        // ── Read from env var, support comma-separated list ──
+        List<String> allowedOrigins = Arrays.stream(allowedOriginsRaw.split(","))
+                .map(String::trim)
+                .toList();
+
+        corsConfig.setAllowedOrigins(allowedOrigins);
         
         // Allowed HTTP methods
         corsConfig.setAllowedMethods(Arrays.asList(
