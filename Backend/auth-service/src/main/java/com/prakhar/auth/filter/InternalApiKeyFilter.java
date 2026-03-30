@@ -21,6 +21,13 @@ public class InternalApiKeyFilter extends OncePerRequestFilter {
     private String expectedKey;
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) throws ServletException {
+        String path = request.getRequestURI();
+        // Completely bypass the API Key requirement for Actuator health checks
+        return path.startsWith("/actuator/");
+    }
+
+    @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 

@@ -12,6 +12,18 @@ buildNumber.properties
 .mvn/timing.properties
 .mvn/wrapper/maven-wrapper.jar
 
+
+
+# Allure test reporting directories
+.allure/
+allure-results/
+
+# AspectJ weaver core dumps / crash logs
+ajcore.*.txt
+
+# Java HotSpot JVM crash logs
+hs_err_pid*.log
+
 # Spring Boot
 HELP.md
 
