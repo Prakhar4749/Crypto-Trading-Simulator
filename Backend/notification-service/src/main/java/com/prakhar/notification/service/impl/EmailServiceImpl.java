@@ -43,6 +43,9 @@ public class EmailServiceImpl implements EmailService {
     @Value("${admin.email:}")
     private String adminEmail;
 
+    @Value("${app.email.from}")
+    private String fromEmail;
+
     public EmailServiceImpl(JavaMailSender mailSender) {
         this.mailSender = mailSender;
     }
@@ -53,9 +56,10 @@ public class EmailServiceImpl implements EmailService {
             logger.warn("Admin email not configured, skipping SMTP startup test");
             return;
         }
-        
+
         try {
             SimpleMailMessage test = new SimpleMailMessage();
+            test.setFrom(fromEmail); // <-- ADD THIS
             test.setTo(adminEmail);
             test.setSubject("[" + appName + "] Notification Service Started");
             test.setText("Notification service is running and email is working correctly.");
@@ -71,12 +75,16 @@ public class EmailServiceImpl implements EmailService {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+
+            // <-- ADD THIS (Sets both the email and the display name)
+            helper.setFrom(fromEmail, appName);
+
             helper.setTo(to);
             helper.setSubject(subject);
             helper.setText(body, true);
             mailSender.send(message);
             logger.info("Email sent successfully to: {}, Subject: {}", maskEmail(to), subject);
-        } catch (MessagingException | MailException e) {
+        } catch (jakarta.mail.MessagingException | org.springframework.mail.MailException | java.io.UnsupportedEncodingException e) {
             logger.error("FAILED to send email to: {}, Error: {}", maskEmail(to), e.getMessage());
         }
     }
