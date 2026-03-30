@@ -57,17 +57,23 @@ public class EmailServiceImpl implements EmailService {
             return;
         }
 
-        try {
-            SimpleMailMessage test = new SimpleMailMessage();
-            test.setFrom(fromEmail); // <-- ADD THIS
-            test.setTo(adminEmail);
-            test.setSubject("[" + appName + "] Notification Service Started");
-            test.setText("Notification service is running and email is working correctly.");
-            mailSender.send(test);
-            logger.info("SMTP test email sent successfully to: {}", maskEmail(adminEmail));
-        } catch (Exception e) {
-            logger.error("SMTP FAILED on startup: {} — Check SMTP_USERNAME and SMTP_PASSWORD", e.getMessage());
-        }
+        logger.info("Initiating SMTP startup test...");
+
+        String subject = "🚀 [" + appName + "] Notification Service Started";
+
+        StringBuilder content = new StringBuilder();
+        content.append(EmailTemplateBuilder.greeting("Admin"));
+        content.append(EmailTemplateBuilder.para("The notification service for " + appName + " has successfully started up and the SMTP configurations are working perfectly."));
+
+        // Adding some useful startup context
+        content.append(EmailTemplateBuilder.infoBox("Service Status", "Running 🟢"));
+        content.append(EmailTemplateBuilder.infoBox("Startup Time", formatIst(LocalDateTime.now(ZoneId.of("UTC")))));
+
+        String footer = EmailTemplateBuilder.footer(appName, frontendUrl);
+        String body = EmailTemplateBuilder.wrap(appName, logoUrl, content.toString(), footer);
+
+        // This uses your existing HTML email sender logic
+        sendEmail(adminEmail, subject, body);
     }
 
     @Override
